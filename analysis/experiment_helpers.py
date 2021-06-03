@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from datetime import datetime
-
+import os
 
 def get_components_of_runtime(table, name="unnamed"):
     sub_tbl = table[["Eviction Time",
@@ -162,3 +162,22 @@ def take_column_named(column_name, data):
 
         res["(%s)%s" % (name,column_name)] = df[column_name]
     return res
+
+def get_nic_monitor_data(EXPERIMENT_TYPES, workload, experiment_dir):
+    all_data = pd.DataFrame()
+    for exp in EXPERIMENT_TYPES:
+        tbl = pd.DataFrame()
+        for f in os.listdir("%s/%s/%s/" % (experiment_dir, workload, exp)):
+            if f.startswith("nic_monitor"):
+                ratio = int(f.split(".")[1])
+                tmp = pd.read_csv("%s/%s/%s/%s" % (experiment_dir, workload, exp, f))
+                tmp["RATIO"] = ratio
+                tmp["Experiment Name"] = exp
+                tbl = tbl.append(tmp)
+        all_data = all_data.append(tbl)
+
+        all_data["Time(s)"] = all_data["TIME"] / 1000
+        all_data["Xmit(MB)"] = all_data["XMIT"] / (1024 * 1024)
+        all_data["Recv(MB)"] = all_data["RECV"] / (1024 * 1024)
+
+    return all_data.sort_values(["RATIO", "TIME"])
