@@ -1,8 +1,8 @@
 #!/bin/bash
-
+OBL_DIR="/mydata/oblivious"
+NIC_DEVICE="mlx5_0"
 RESULTS_DIR="experiment_results"
-ALL_RATIOS="100 90 80 70 60 50 40" # 30 20 10 5"
-#ALL_RATIOS="10"
+ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
 APP_CPUS="1"
 
 EXPERIMENT_NAME=${1}
@@ -139,8 +139,8 @@ function run_experiment {
 	    ftrace_begin
 	    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.$ratio.csv" &
 	    NIC_MONITOR=$!
-	    PAGES_SWAPPED_IN=$(cat "/sys/class/infiniband/mlx4_0/ports/1/counters/port_rcv_data")
-	    PAGES_SWAPPED_OUT=$(cat "/sys/class/infiniband/mlx4_0/ports/1/counters/port_xmit_data")
+	    PAGES_SWAPPED_IN=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")
+	    PAGES_SWAPPED_OUT=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")
 	    RUN_TIME=$(
 	    #subshell BEGIN
 	    # \/ uncomment the line below if youd like to add the current process (INCLUDING THE BASH SHELL) to the cgroup
@@ -154,8 +154,8 @@ function run_experiment {
 	    )
 	    kill -9 $NIC_MONITOR
 
-	    PAGES_SWAPPED_IN=$((($(cat "/sys/class/infiniband/mlx4_0/ports/1/counters/port_rcv_data")-$PAGES_SWAPPED_IN) * 4 / 4096))
-	    PAGES_SWAPPED_OUT=$((($(cat "/sys/class/infiniband/mlx4_0/ports/1/counters/port_xmit_data")-$PAGES_SWAPPED_OUT) * 4 / 4096))
+	    PAGES_SWAPPED_IN=$((($(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")-$PAGES_SWAPPED_IN) * 4 / 4096))
+	    PAGES_SWAPPED_OUT=$((($(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")-$PAGES_SWAPPED_OUT) * 4 / 4096))
 	    TIME_AND_SWAP_RESULTS_HEADER="RATIO,USER,SYSTEM,WALLCLOCK,PAGES_EVICTED,PAGES_SWAPPED_IN"
 	    TIME_AND_SWAP_RESULTS_ARR+=("$ratio,$RUN_TIME,$PAGES_SWAPPED_OUT,$PAGES_SWAPPED_IN")
 	    ftrace_end $ratio
@@ -221,31 +221,31 @@ if [[ $yn != "y" ]]; then
 fi
 
 #####################################  EXPERIMENTS BEGIN ########################################
-#EXPERIMENT_TYPE="no_prefetching"
+EXPERIMENT_TYPE="no_prefetching"
 # make sure tape prefetcher is not loaded
-#pushd ~/oblivious/injector
-#./cli.sh tape_ops 0
-#./cli.sh ssdopt 0
-#./cli.sh async_writes 0
-#popd
+pushd $OBL_DIR/injector
+./cli.sh tape_ops 0
+./cli.sh ssdopt 0
+./cli.sh async_writes 0
+popd
 
-#echoG ">>> Experiments with single-page swap-ins"
-#echo 0 > /proc/sys/vm/page-cluster
-#run_experiment $ALL_RATIOS
-#
-#report_results
-#reset_results
+echoG ">>> Experiments with single-page swap-ins"
+echo 0 > /proc/sys/vm/page-cluster
+run_experiment $ALL_RATIOS
 
-#                   #EXPERIMENT_TYPE="linux_prefetching"
-#                   #echoG ">>> Experiments with 8page swapins"
-#                   #echo 3 > /proc/sys/vm/page-cluster
-#                   #run_experiment $ALL_RATIOS
-#                   #
-#                   #report_results
-#                   #reset_results
+report_results
+reset_results
+
+EXPERIMENT_TYPE="linux_prefetching"
+echoG ">>> Experiments with 8page swapins"
+echo 3 > /proc/sys/vm/page-cluster
+run_experiment $ALL_RATIOS
+
+report_results
+reset_results
 
 #EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
-#pushd ~/oblivious/injector
+#pushd $OBL_DIR/injector
 #./cli.sh async_writes 1
 #popd
 #echoG ">>> Experiments with 8page swapins, async writes"
@@ -254,10 +254,10 @@ fi
 #
 #report_results
 #reset_results
-
+#
 #EXPERIMENT_TYPE="linux_prefetching_ssdopt"
 #echoG ">>> Experiments with swap write path SSD optimization"
-#pushd ~/oblivious/injector
+#pushd $OBL_DIR/injector
 #./cli.sh tape_ops 0
 #./cli.sh ssdopt 1
 #./cli.sh async_writes 0
@@ -268,10 +268,10 @@ fi
 #
 #report_results
 #reset_results
-
+#
 #EXPERIMENT_TYPE="linux_prefetching_ssdopt_asyncwrites"
 #echoG ">>> Experiments with swap write path SSD optimization + async writes"
-#pushd ~/oblivious/injector
+#pushd $OBL_DIR/injector
 #./cli.sh tape_ops 0
 #./cli.sh ssdopt 1
 #./cli.sh async_writes 1
@@ -283,28 +283,27 @@ fi
 #reset_results
 ################################  TAPE PREFETCHING EXPERIMENTS ##############################
 # page cluster param below should not make a difference.
-#echo 0 > /proc/sys/vm/page-cluster
-#EXPERIMENT_TYPE="tape_prefetching_syncwrites"
-#echoG ">>> Experiments with tape prefetching"
-#pushd ~/oblivious/injector
-#./cli.sh tape_ops 1
-#./cli.sh ssdopt 0
-#./cli.sh async_writes 0
-#./cli.sh offload_fetch 0
-#./cli.sh unevictable 0
-#popd
-#
-#run_experiment $ALL_RATIOS
-#
-#report_results
-#reset_results
-
-EXPERIMENT_TYPE="tape_prefetching_asyncwrites"
 echo 0 > /proc/sys/vm/page-cluster
+EXPERIMENT_TYPE="tape_prefetching_syncwrites"
 echoG ">>> Experiments with tape prefetching"
-pushd ~/oblivious/injector
+pushd $OBL_DIR/injector
 ./cli.sh tape_ops 1
 ./cli.sh ssdopt 0
+./cli.sh async_writes 0
+./cli.sh offload_fetch 0
+./cli.sh unevictable 0
+popd
+
+run_experiment $ALL_RATIOS
+
+report_results
+reset_results
+
+EXPERIMENT_TYPE="tape_prefetching_asyncwrites"
+echoG ">>> Experiments with tape prefetching"
+pushd $OBL_DIR/injector
+./cli.sh tape_ops 1
+./cli.sh ssdopt 1
 ./cli.sh async_writes 1
 ./cli.sh offload_fetch 0
 ./cli.sh unevictable 0
@@ -314,38 +313,36 @@ run_experiment $ALL_RATIOS
 
 report_results
 reset_results
+
+EXPERIMENT_TYPE="tape_prefetching_asyncwrites_linux"
+echoG ">>> Experiments with tape prefetching"
 echo 3 > /proc/sys/vm/page-cluster
+pushd $OBL_DIR/injector
+./cli.sh tape_ops 1
+./cli.sh ssdopt 1
+./cli.sh async_writes 1
+./cli.sh offload_fetch 0
+./cli.sh unevictable 0
+popd
 
+run_experiment $ALL_RATIOS
 
-#EXPERIMENT_TYPE="tape_prefetching_asyncwrites_linux"
+report_results
+reset_results
+echo 0 > /proc/sys/vm/page-cluster
+
+#EXPERIMENT_TYPE="tape_prefetching_asyncwrites_offload_fetch"
 #echoG ">>> Experiments with tape prefetching"
-#echo 3 > /proc/sys/vm/page-cluster
-#pushd ~/oblivious/injector
+#pushd $OBL_DIR/injector
 #./cli.sh tape_ops 1
 #./cli.sh ssdopt 1
 #./cli.sh async_writes 1
-#./cli.sh offload_fetch 0
-#./cli.sh unevictable 0
-#popd
-#
-#run_experiment $ALL_RATIOS
-#
-#report_results
-#reset_results
-
-#echo 0 > /proc/sys/vm/page-cluster
-#EXPERIMENT_TYPE="tape_prefetching_asyncwrites_offload_fetch"
-#echoG ">>> Experiments with tape prefetching"
-#pushd ~/oblivious/injector
-#./cli.sh tape_ops 1
-#./cli.sh ssdopt 0
-#./cli.sh async_writes 1
 #./cli.sh offload_fetch 1
-##./cli.sh unevictable 1
+#./cli.sh unevictable 1
 #popd
 #
 #run_experiment $ALL_RATIOS
 #
 #report_results
 #reset_results
-echo 3 > /proc/sys/vm/page-cluster
+#
