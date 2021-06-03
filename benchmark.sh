@@ -3,6 +3,7 @@ OBL_DIR="/mydata/oblivious"
 NIC_DEVICE="mlx5_0"
 RESULTS_DIR="experiment_results"
 ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
+ALL_RATIOS=${RATIOS:-$ALL_RATIOS}
 APP_CPUS="1"
 
 EXPERIMENT_NAME=${1}
@@ -123,6 +124,7 @@ function cgroup_end {
 # there is a weird vim-bash script highlighting issue. the subshell syntax confuses all of
 # highlighting after this function
 function run_experiment {
+    mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE"
 	for ratio in $@
 	do
 	    num_tapes=0

@@ -1,9 +1,16 @@
+#!/bin/bash
+NIC_DEVICE="mlx5_0"
+
 t0=$(($(date +%s%N)/1000000))
-xmit0=$(cat "/sys/class/infiniband/mlx4_0/ports/1/counters/port_xmit_data");
+recv0=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data");
+xmit0=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data");
+echo "TIME,RECV,XMIT"
 while true; do
-	xmit=$(cat "/sys/class/infiniband/mlx4_0/ports/1/counters/port_xmit_data");
+	recv=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data");
+	recv=$((($recv-$recv0) * 4))
+	xmit=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data");
 	xmit=$((($xmit-$xmit0) * 4))
 	t=$(($(date +%s%N)/1000000))
 	t=$(($t-$t0))
-	echo $t,$xmit
-	sleep 0.01; done
+	echo $t,$recv,$xmit
+	sleep 0.1; done
