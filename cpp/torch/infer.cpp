@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unistd.h>
 #include "modelsimpl.h"
 #include <torch/torch.h>
 
@@ -79,7 +80,7 @@ int main()
 	auto in = torch::rand({ 4, 3, 1024, 768 });
 
 	auto begin = std::chrono::high_resolution_clock::now();
-	for (auto i = 0; i < 20; i++) {
+	for (auto i = 0; i < 1; i++) {
 		std::cout << "iter " << i << std::endl;
 		auto out = model.forward(in);
 	}
