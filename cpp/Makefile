@@ -6,7 +6,8 @@ CPPFLAGS=-O2 -Wall -Wextra -g -march=native -fno-omit-frame-pointer -std=c++17 -
 # used for mmap_random+_rw because optimizations optimize out most memory reads..somehow
 CPPFLAGS_O0 =-O0 -Wall -Wextra -g -march=native -std=c++17 -static  -I $(EIGEN_DIR)
 
-all: mmult_eigen sparse_eigen mmap_random_rw sort
+# todo:: later remote multi mmult_eigen apps, a hack here since traces are managed by file name
+all: mmult_eigen mmult_eigen_vec mmult_eigen_dot sparse_eigen mmap_random_rw sort sort_merge
 
 mmap_random_rw: mmap_random_rw.cpp
 	$(CXX) $(CPPFLAGS_O0) $^ -o $@
@@ -14,6 +15,12 @@ mmap_random_rw: mmap_random_rw.cpp
 mmult_eigen: mmult_eigen.cpp
 	$(CXX) $(CPPFLAGS) -static $^ -o $@
 	$(CXX) $(CPPFLAGS) $^ -o $@_dyn
+
+mmult_eigen_vec: mmult_eigen.cpp
+	$(CXX) $(CPPFLAGS) -static $^ -o $@
+
+mmult_eigen_dot: mmult_eigen.cpp
+	$(CXX) $(CPPFLAGS) -static $^ -o $@
 
 sparse_eigen: sparse_eigen.cpp
 	$(CXX) $(CPPFLAGS) -static $^ -o $@
@@ -25,6 +32,9 @@ mmult_eigen_par: mmult_eigen.cpp
 sort: sort.cpp
 	$(CXX) $(CPPFLAGS) $^ -o $@
 	$(CXX) $(CPPFLAGS) -DMADVISE $^ -o $@_madvise
+
+sort_merge: sort.cpp
+	$(CXX) $(CPPFLAGS) $^ -o $@
 
 .PHONY: clean
 clean:
