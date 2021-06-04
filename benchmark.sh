@@ -246,16 +246,16 @@ run_experiment $ALL_RATIOS
 report_results
 reset_results
 
-EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
-pushd $OBL_DIR/injector
-./cli.sh async_writes 1
-popd
-echoG ">>> Experiments with 8page swapins, async writes"
-echo 3 > /proc/sys/vm/page-cluster
-run_experiment $ALL_RATIOS
-
-report_results
-reset_results
+#EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
+#pushd $OBL_DIR/injector
+#./cli.sh async_writes 1
+#popd
+#echoG ">>> Experiments with 8page swapins, async writes"
+#echo 3 > /proc/sys/vm/page-cluster
+#run_experiment $ALL_RATIOS
+#
+#report_results
+#reset_results
 
 #EXPERIMENT_TYPE="linux_prefetching_ssdopt"
 #echoG ">>> Experiments with swap write path SSD optimization"
