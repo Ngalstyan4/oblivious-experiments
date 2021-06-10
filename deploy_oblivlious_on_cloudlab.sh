@@ -35,9 +35,7 @@ git clone --recursive git@github.com:Ngalstyan4/oblivious.git
 # needed for rmserver compilation (fastswap far memory daemon)
 sudo apt-get install libibverbs-dev
 sudo apt-get install librdmacm-dev
-git clone https://github.com/clusterfarmem/fastswap.git
 pushd oblivious
-
 
 # https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html
 # in this kernel, need to explicitly disable cgrou_v1 for v2 to work
