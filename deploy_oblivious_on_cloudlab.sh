@@ -28,7 +28,7 @@ then
     sudo apt install -y perftest infiniband-diags
 
     sudo mkdir /mydata
-    sudo chown narekg /mydata
+    sudo chown $USER /mydata
     sudo /usr/local/etc/emulab/mkextrafs.pl /mydata
     pushd /mydata
     git clone --recursive git@github.com:Ngalstyan4/oblivious.git
