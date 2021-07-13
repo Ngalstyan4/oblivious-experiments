@@ -2,12 +2,20 @@
 #args:./benchmark.sh [results_dir] [RSS_in_pages]             [command to run in cgroup under memory pressure]
 CPU=1
 
+sudo mkdir -p /data/traces
+sudo chown $USER -R /data
+
+pushd /mydata/oblivious/injector
+make
+./cli.sh tape_ops 1 us_size=60
+popd
+
 pushd /data/traces
-#mkdir mmult_eigen_vec
-mkdir mmult_eigen
-#mkdir mmult_eigen_dot
-#mkdir sort
-#mkdir sort_merge
+#mkdir -p mmult_eigen_vec
+mkdir -p mmult_eigen
+#mkdir -p mmult_eigen_dot
+#mkdir -p sort
+#mkdir -p sort_merge
 popd
 
 #taskset -c $CPU ./cpp/mmult_eigen_vec 4 $((4096*4)) vec
