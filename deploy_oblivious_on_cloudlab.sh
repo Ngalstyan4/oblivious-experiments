@@ -42,7 +42,7 @@ then
     # in this kernel, need to explicitly disable cgrou_v1 for v2 to work
     # change grub boot param to force cgroup2. done here so after kernel update below, update-grub call
     # makes this change take effect
-    sudo sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="cgroup_no_v2=all"/' /etc/default/grub
+    sudo sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="cgroup_no_v1=all"/' /etc/default/grub
 
     time KBUILD_BUILD_HOST='dev_fastswap' KBUILD_BUILD_VERSION=44 KBUILD_BUILD_TIMESTAMP='lunchtime' make CC="ccache gcc" -j`nproc --all`
     sudo make headers_install -j12 && sudo make INSTALL_MOD_STRIP=1 modules_install -j12 && sudo make install -j4
