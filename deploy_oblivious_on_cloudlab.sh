@@ -113,7 +113,10 @@ then
 
         echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 
-        sudo mkdir -p /data/traces
+	pushd ~/oblivious-experiments/cpp
+	git submodule update --init
+	make
+	popd
     elif [[ $HOSTNAME = node1* ]]
     then
         sudo ifconfig eno50 10.0.0.2 netmask 255.0.0.0 up
