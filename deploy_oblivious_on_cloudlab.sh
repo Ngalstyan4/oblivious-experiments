@@ -117,6 +117,10 @@ then
     elif [[ $HOSTNAME = node1* ]]
     then
         sudo ifconfig eno50 10.0.0.2 netmask 255.0.0.0 up
+	pushd /mydata/oblivious/syncswap/farmemserver
+	sed -i 's/NUM_PROCS = 8;/NUM_PROCS = 20;/' rmserver.c
+	make
+	popd
     fi
 else
     echo "First argument should be 1, 2, 3, or 4"
