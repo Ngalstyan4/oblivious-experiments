@@ -99,7 +99,7 @@ then
         echo "aslr : $(cat /proc/sys/kernel/randomize_va_space)"
         echo "transparent huge pages: $(cat /sys/kernel/mm/transparent_hugepage/enabled)"
 
-        sudo ifconfig ens1f1 10.0.0.1 netmask 255.0.0.0 up
+        sudo ifconfig eno50 10.0.0.1 netmask 255.0.0.0 up
         pushd /mydata/oblivious/syncswap/drivers
         make BACKEND=RDMA
         sudo insmod fastswap_rdma.ko sport=50000 sip="10.0.0.2" cip="10.0.0.1" nq=20
