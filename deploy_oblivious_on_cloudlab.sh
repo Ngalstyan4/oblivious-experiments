@@ -49,6 +49,8 @@ then
     echo "build successfull" > ~/status.txt
     popd
     popd
+
+    sudo reboot
 elif [[ $1 = "2" ]]
 then
     ##########################################   STAGE 2   ########################################################
@@ -64,6 +66,8 @@ then
     sudo ./mlnxofedinstall --add-kernel-support
     sudo /etc/init.d/openibd restart
     popd
+
+    sudo reboot
 elif [[ $1 = "3" ]]
 then
     ##########################################   STAGE 3   ########################################################
@@ -90,6 +94,8 @@ then
     sudo chmod 600 $SWAP_PATH
     sudo mkswap $SWAP_PATH
     sudo swapon $SWAP_PATH
+
+    sudo reboot
 elif [[ $1 = "4" ]]
 then
     if [[ $HOSTNAME = node0* ]]
