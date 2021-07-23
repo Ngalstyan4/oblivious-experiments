@@ -1,1 +1,1 @@
-../../injector/mem_pattern_trace.h
+/mydata/oblivious/injector/mem_pattern_trace.h

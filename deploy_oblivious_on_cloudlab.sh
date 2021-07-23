@@ -90,6 +90,34 @@ then
     sudo chmod 600 $SWAP_PATH
     sudo mkswap $SWAP_PATH
     sudo swapon $SWAP_PATH
+elif [[ $1 = "4" ]]
+then
+    if [[ $HOSTNAME = node0* ]]
+    then
+        echo never | sudo tee  /sys/kernel/mm/transparent_hugepage/enabled
+        echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+        echo "aslr : $(cat /proc/sys/kernel/randomize_va_space)"
+        echo "transparent huge pages: $(cat /sys/kernel/mm/transparent_hugepage/enabled)"
+
+        sudo ifconfig ens1f1 10.0.0.1 netmask 255.0.0.0 up
+        pushd /mydata/oblivious/syncswap/drivers
+        make BACKEND=RDMA
+        sudo insmod fastswap_rdma.ko sport=50000 sip="10.0.0.2" cip="10.0.0.1" nq=20
+        sudo insmod fastswap.ko
+
+        sudo mkdir -p /cgroup2
+        sudo mount -t cgroup2 nodev /cgroup2
+        # I got this from https://unix.stackexchange.com/questions/626352/how-can-i-unmount-cgroup-version-1/626353#626353
+        mount -t cgroup | cut -f 3 -d ' ' | xargs sudo umount
+        echo '+memory' | sudo tee /cgroup2/cgroup.subtree_control
+
+        echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+        sudo mkdir -p /data/traces
+    elif [[ $HOSTNAME = node1* ]]
+    then
+        sudo ifconfig eno50 10.0.0.2 netmask 255.0.0.0 up
+    fi
 else
-    echo "First argument should be 1, 2, or 3"
+    echo "First argument should be 1, 2, 3, or 4"
 fi
