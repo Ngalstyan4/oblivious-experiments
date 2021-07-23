@@ -1,6 +1,6 @@
 #!/bin/bash
 OBL_DIR="/mydata/oblivious"
-NIC_DEVICE="mlx5_0"
+NIC_DEVICE="mlx5_1"
 RESULTS_DIR="experiment_results"
 ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
 ALL_RATIOS=${RATIOS:-$ALL_RATIOS}
@@ -128,11 +128,14 @@ function run_experiment {
 	for ratio in $@
 	do
 	    num_tapes=0
-	    for tape in /data/traces/$EXPERIMENT_NAME/$ratio/*.tape.*
-	    do
+            if [ -d /data/traces/$EXPERIMENT_NAME/$ratio ]
+            then
+	        for tape in /data/traces/$EXPERIMENT_NAME/$ratio/*.tape.*
+	        do
 		    ((num_tapes+=1))
 		    ln -sf "$tape" "/data/traces/$EXPERIMENT_NAME/`basename $tape`"
-	    done
+	        done
+	    fi
 	    echoG "Begin experiment with ration ratio: $ratio\tneeded total pages: $PROGRAM_REQUESTED_NUM_PAGES (found $num_tapes tapes)"
 	    cgroup_init
 	    # need to run cgroup_add in a subshell to make sure all processes of cgroup exit before next iteration

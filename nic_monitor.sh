@@ -1,5 +1,5 @@
 #!/bin/bash
-NIC_DEVICE="mlx5_0"
+NIC_DEVICE="mlx5_1"
 
 t0=$(($(date +%s%N)/1000000))
 recv0=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data");
