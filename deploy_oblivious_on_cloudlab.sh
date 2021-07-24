@@ -64,8 +64,8 @@ then
     pushd MLNX_OFED_LINUX-4.2-1.2.0.0-ubuntu16.04-x86_64
     sudo apt-get remove -y libibmad5 libibnetdisc5 libosmcomp3
     sudo ./mlnxofedinstall --add-kernel-support
-    sudo /etc/init.d/openibd restart
-    popd
+    # sudo /etc/init.d/openibd restart
+    # popd
 
     sudo reboot
 elif [[ $1 = "3" ]]
