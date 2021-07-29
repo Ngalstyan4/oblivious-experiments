@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# set swap file
+SWAP_PATH=/mydata/swapfile
+# IFACE needs to be an interface that is UP according to
+# ibdev2netdev
+# todo:: update the lines below to choose the interface automatically
+IFACE=ens1f1
+
+
 if [[ $1 = "1" ]]
 then
     # note: restart between stages. Most steps are optional for remote memory server but I have usually done them to
@@ -12,8 +20,10 @@ then
 
     sudo apt update
 
+    pushd ~
     git clone https://github.com/Ngalstyan4/dotfiles.git
     (cd dotfiles && ./setup.sh)
+    popd
 
     # kernel build deps, more expls here ` https://phoenixnap.com/kb/build-linux-kernel
     sudo apt-get install -y libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
@@ -28,8 +38,9 @@ then
     sudo apt install -y perftest infiniband-diags
 
     sudo mkdir /mydata
-    sudo chown $USER /mydata
     sudo /usr/local/etc/emulab/mkextrafs.pl /mydata
+    # needs to be after mkextrafs.pl since the above changes ownership to root
+    sudo chown $USER /mydata
     pushd /mydata
     git clone --recursive git@github.com:Ngalstyan4/oblivious.git
 
@@ -58,14 +69,15 @@ then
 
     # choose compatible mlx driver version ` https://www.mellanox.com/support/mlnx-ofed-matrix
     # download appropriate versioned driver ` https://www.mellanox.com/products/infiniband-drivers/linux/mlnx_ofed
-    cd ~
+    pushd ~
     wget https://content.mellanox.com/ofed/MLNX_OFED-4.2-1.2.0.0/MLNX_OFED_LINUX-4.2-1.2.0.0-ubuntu16.04-x86_64.tgz
     tar zxf MLNX_OFED_LINUX-4.2-1.2.0.0-ubuntu16.04-x86_64.tgz
     pushd MLNX_OFED_LINUX-4.2-1.2.0.0-ubuntu16.04-x86_64
     sudo apt-get remove -y libibmad5 libibnetdisc5 libosmcomp3
     sudo ./mlnxofedinstall --add-kernel-support
     # sudo /etc/init.d/openibd restart
-    # popd
+    popd
+    popd
 
     sudo reboot
 elif [[ $1 = "3" ]]
@@ -73,8 +85,10 @@ then
     ##########################################   STAGE 3   ########################################################
     # Installing dev env and eval env
 
+    pushd ~
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    bash Miniconda3-latest-Linux-x86_64.sh
+    # -b flag allows silent installation without any prompts
+    bash Miniconda3-latest-Linux-x86_64.sh -b
     source ~/.bashrc
     # todo:: there are some others, that I think I forgot. Whoever runs experiments next, please add those
     pip install jupyter numpy pandas plotly
@@ -84,32 +98,36 @@ then
     wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip
     unzip libtorch-shared-with-deps-latest.zip
     popd
+    popd
 
     # for torch compilation
     sudo apt install -y cmake
 
-    # set swap file
-    SWAP_PATH=/mydata/swapfile
     sudo fallocate -l 10G $SWAP_PATH
     sudo chmod 600 $SWAP_PATH
     sudo mkswap $SWAP_PATH
-    sudo swapon $SWAP_PATH
 
-    sudo reboot
+    pushd /mydata/oblivious/experiments/cpp
+    make
+    popd
+
+    echo "Stage 3 was successfull! You can proceed without restart"
 elif [[ $1 = "4" ]]
 then
     if [[ $HOSTNAME = node0* ]]
     then
+        sudo swapon $SWAP_PATH
         echo never | sudo tee  /sys/kernel/mm/transparent_hugepage/enabled
         echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
         echo "aslr : $(cat /proc/sys/kernel/randomize_va_space)"
         echo "transparent huge pages: $(cat /sys/kernel/mm/transparent_hugepage/enabled)"
 
-        sudo ifconfig eno50 10.0.0.1 netmask 255.0.0.0 up
+        sudo ifconfig $IFACE 10.0.0.1 netmask 255.0.0.0 up
         pushd /mydata/oblivious/syncswap/drivers
         make BACKEND=RDMA
         sudo insmod fastswap_rdma.ko sport=50000 sip="10.0.0.2" cip="10.0.0.1" nq=20
         sudo insmod fastswap.ko
+	popd
 
         sudo mkdir -p /cgroup2
         sudo mount -t cgroup2 nodev /cgroup2
@@ -119,13 +137,9 @@ then
 
         echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 
-	pushd ~/oblivious-experiments/cpp
-	git submodule update --init
-	make
-	popd
     elif [[ $HOSTNAME = node1* ]]
     then
-        sudo ifconfig eno50 10.0.0.2 netmask 255.0.0.0 up
+        sudo ifconfig $IFACE 10.0.0.2 netmask 255.0.0.0 up
 	pushd /mydata/oblivious/syncswap/farmemserver
 	sed -i 's/NUM_PROCS = 8;/NUM_PROCS = 20;/' rmserver.c
 	make
