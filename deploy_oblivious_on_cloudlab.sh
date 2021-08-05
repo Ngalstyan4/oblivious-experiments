@@ -5,8 +5,11 @@ SWAP_PATH=/mydata/swapfile
 # IFACE needs to be an interface that is UP according to
 # ibdev2netdev
 # todo:: update the lines below to choose the interface automatically
-IFACE=ens1f1
 
+# interface for 25G NICs on xl170
+IFACE=ens1f1
+# interface for 10G programmable NICs in multiswitch experiments
+IFACE=eno50
 
 if [[ $1 = "1" ]]
 then
