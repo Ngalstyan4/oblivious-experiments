@@ -32,11 +32,17 @@ then
     sudo apt-get install -y libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
     sudo apt-get install -y git fakeroot build-essential ncurses-dev xz-utils libssl-dev bc
     sudo apt install -y htop
-    # ccache for faster builds
-    sudo apt install -y ccache
+    # ccache for faster builds, clang-format for vim dev
+    sudo apt install -y ccache clang-format
+
 
     # mosh for ssh sanity in case of bad networks
     sudo apt install -y mosh
+
+    # ripgrep for fast grepping in kernel code
+    curl -LO https://github.com/BurntSushi/ripgrep/releases/download/12.1.1/ripgrep_12.1.1_amd64.deb
+    sudo dpkg -i ripgrep_12.1.1_amd64.deb
+    rm ripgrep_12.1.1_amd64.deb
 
     sudo apt install -y perftest infiniband-diags
 
@@ -92,9 +98,10 @@ then
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     # -b flag allows silent installation without any prompts
     bash Miniconda3-latest-Linux-x86_64.sh -b
+    ./miniconda3/bin/conda init
     source ~/.bashrc
     # todo:: there are some others, that I think I forgot. Whoever runs experiments next, please add those
-    pip install jupyter numpy pandas plotly
+    pip install jupyter numpy pandas plotly tmuxp chart_studio
 
     # download torch library for lining with torch workloads
     pushd /mydata
@@ -104,6 +111,7 @@ then
     popd
 
     # for torch compilation
+    # install 3.5.1, to install newer version(3.20) follow instructions here ` https://askubuntu.com/questions/355565/how-do-i-install-the-latest-version-of-cmake-from-the-command-line#865294
     sudo apt install -y cmake
 
     sudo fallocate -l 10G $SWAP_PATH
@@ -151,3 +159,4 @@ then
 else
     echo "First argument should be 1, 2, 3, or 4"
 fi
+
