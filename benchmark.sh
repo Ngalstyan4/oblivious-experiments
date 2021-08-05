@@ -1,10 +1,12 @@
 #!/bin/bash
 OBL_DIR="/mydata/oblivious"
-NIC_DEVICE="mlx5_1"
+NIC_DEVICE="mlx5_3"
 RESULTS_DIR="experiment_results"
 ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
 ALL_RATIOS=${RATIOS:-$ALL_RATIOS}
-APP_CPUS="1"
+APP_CPUS=`seq 8 19`
+POSTPROCESS_FETCH_BATCH_SIZE=50
+PYTHON="$HOME/miniconda3/bin/python"
 
 EXPERIMENT_NAME=${1}
 EXPERIMENT_TYPE="" #"no_prefetching"|"linux_prefetching"|"tape_prefetching"
@@ -216,17 +218,39 @@ if [ "$EUID" -ne 0 ]; then
     exit
 fi
 
-echo "This script will run tracing in different C groups with different linux wap options"
+echo "This script will benchmark various prefetching techniques in cgroups"
 echo "Experiment $EXPERIMENT_NAME with command \"$PROGRAM_INVOCATION\" (RSS=$PROGRAM_REQUESTED_NUM_PAGES ) "
+echo "For local memory ratios: $RATIOS"
 read -p "^^ Is this correct? [y/n] " yn
 
 if [[ $yn != "y" ]]; then
-	echo "Aborted"
+	echo "Aborted $APP_CPUS"
 	exit
 fi
 
+if [ ! -f "/data/traces/$EXPERIMENT_NAME/main.bin.0" ]; then
+	read -p "It seems a trace does not exist for the application, would you like to trace it? [y/n]" yn
+	if [[ $yn == "y" ]]; then
+		pushd $OBL_DIR/injector
+		./cli.sh us_size 10
+		popd
+		mkdir -p /data/traces/$EXPERIMENT_NAME
+		GOMP_CPU_AFFINITY="1" OMP_SCHEDULE=static taskset -c 1 $PROGRAM_INVOCATION
+		$PYTHON ../tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+	fi
+fi
+
+
+if [ ! -f "/data/traces/$EXPERIMENT_NAME/10/main.tape.0" ]; then
+	read -p "It seems a raw trace exists but not a postprocessed one. Would you like to postprocess it? [y/n]" yn
+	if [[ $yn == "y" ]]; then
+		$PYTHON ../tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+	fi
+fi
+
+
 #####################################  EXPERIMENTS BEGIN ########################################
-EXPERIMENT_TYPE="no_prefetching"
+#EXPERIMENT_TYPE="no_prefetching"
 # make sure tape prefetcher is not loaded
 pushd $OBL_DIR/injector
 ./cli.sh tape_ops 0
@@ -234,12 +258,12 @@ pushd $OBL_DIR/injector
 ./cli.sh async_writes 0
 popd
 
-echoG ">>> Experiments with single-page swap-ins"
-echo 0 > /proc/sys/vm/page-cluster
-run_experiment $ALL_RATIOS
-
-report_results
-reset_results
+#echoG ">>> Experiments with single-page swap-ins"
+#echo 0 > /proc/sys/vm/page-cluster
+#run_experiment $ALL_RATIOS
+#
+#report_results
+#reset_results
 
 EXPERIMENT_TYPE="linux_prefetching"
 echoG ">>> Experiments with 8page swapins"
@@ -249,16 +273,16 @@ run_experiment $ALL_RATIOS
 report_results
 reset_results
 
-#EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
-#pushd $OBL_DIR/injector
-#./cli.sh async_writes 1
-#popd
-#echoG ">>> Experiments with 8page swapins, async writes"
-#echo 3 > /proc/sys/vm/page-cluster
-#run_experiment $ALL_RATIOS
-#
-#report_results
-#reset_results
+EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
+pushd $OBL_DIR/injector
+./cli.sh async_writes 1
+popd
+echoG ">>> Experiments with 8page swapins, async writes"
+echo 3 > /proc/sys/vm/page-cluster
+run_experiment $ALL_RATIOS
+
+report_results
+reset_results
 
 #EXPERIMENT_TYPE="linux_prefetching_ssdopt"
 #echoG ">>> Experiments with swap write path SSD optimization"
@@ -289,20 +313,20 @@ reset_results
 ################################  TAPE PREFETCHING EXPERIMENTS ##############################
 # page cluster param below should not make a difference.
 echo 0 > /proc/sys/vm/page-cluster
-EXPERIMENT_TYPE="tape_prefetching_syncwrites"
-echoG ">>> Experiments with tape prefetching"
-pushd $OBL_DIR/injector
-./cli.sh tape_ops 1
-./cli.sh ssdopt 0
-./cli.sh async_writes 0
-./cli.sh offload_fetch 0
-./cli.sh unevictable 0
-popd
-
-run_experiment $ALL_RATIOS
-
-report_results
-reset_results
+#EXPERIMENT_TYPE="tape_prefetching_syncwrites"
+#echoG ">>> Experiments with tape prefetching"
+#pushd $OBL_DIR/injector
+#./cli.sh tape_ops 1
+#./cli.sh ssdopt 0
+#./cli.sh async_writes 0
+#./cli.sh offload_fetch 0
+#./cli.sh unevictable 0
+#popd
+#
+#run_experiment $ALL_RATIOS
+#
+#report_results
+#reset_results
 
 EXPERIMENT_TYPE="tape_prefetching_asyncwrites"
 echoG ">>> Experiments with tape prefetching"
