@@ -46,7 +46,6 @@ then
     make mrproper
 
     # Compile, install headers and modules, generate grub and reboot
-    yes ''| make oldconfig
     make -j`nproc --all`
     sudo make headers_install
     sudo make modules_install
@@ -70,6 +69,25 @@ then
     popd
 
     sudo reboot
+elif [[ $1 = "3" ]]
+then
+    #sudo apt -y install libibcm1 libibverbs1 ibverbs-utils librdmacm1 rdmacm-utils ibsim-utils ibutils libcxgb3-1 libibmad5 libibumad3 libmlx4-1 libmthca1 libnes1 infiniband-diags mstflint opensm perftest srptools libibverbs-dev librdmacm-dev
+    sudo apt -y install libibcm1 libibverbs1 ibverbs-utils librdmacm1 ibutils libcxgb3-1 libibmad5 libibumad3 libmlx4-1 libmthca1 libnes1 infiniband-diags mstflint opensm perftest srptools libibverbs-dev librdmacm-dev
+    sudo apt -y install libmthca-dev
+
+    sudo modprobe rdma_cm
+    sudo modprobe ib_uverbs
+    sudo modprobe rdma_ucm
+    sudo modprobe ib_ucm
+    sudo modprobe ib_umad
+    sudo modprobe ib_ipoib
+
+    sudo modprobe mlx4_ib
+    sudo modprobe mlx4_en
+    sudo modprobe iw_cxgb3
+    sudo modprobe iw_cxgb4
+    sudo modprobe iw_nes
+    sudo modprobe iw_c2
 else
-    echo "First argument should be 1 or 2"
+    echo "First argument should be 1, 2, or 3"
 fi
