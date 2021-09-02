@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set +x
+
 if [[ $1 = "1" ]]
 then
     sudo apt update
@@ -41,9 +43,6 @@ then
     cp ~/oblivious-experiments/cloudlab_leap_config Leap/.config
 
     cd Leap
-
-    # Clean previous make
-    make mrproper
 
     # Compile, install headers and modules, generate grub and reboot
     make -j`nproc --all`
