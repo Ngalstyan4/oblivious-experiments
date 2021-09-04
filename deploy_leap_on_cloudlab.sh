@@ -33,7 +33,7 @@ then
     sudo apt install -y librdmacm-dev
 
     # Download Leap code
-    git clone --recursive https://github.com/SymbioticLab/Leap
+    git clone --recursive git@github.com:samkumar/Leap.git
 
     # Install dependency packages (for Leap; this repeats some packages from above but some are new)
     sudo apt install -y git build-essential kernel-package fakeroot libncurses5-dev libssl-dev ccache libelf-dev libqt4-dev pkg-config ncurses-dev
@@ -52,7 +52,7 @@ then
 
     popd
     sudo reboot
-elif [[ $1 = "2" ]]
+elif [[ $1 = "2-old-do-not-use-unless-you-know-what-you-are-doing" ]]
 then
     ##########################################   STAGE 2   ########################################################
     # Installing Mellanox driver
@@ -68,11 +68,9 @@ then
     popd
 
     sudo reboot
-elif [[ $1 = "3" ]]
+elif [[ $1 = "2" ]]
 then
-    #sudo apt -y install libibcm1 libibverbs1 ibverbs-utils librdmacm1 rdmacm-utils ibsim-utils ibutils libcxgb3-1 libibmad5 libibumad3 libmlx4-1 libmthca1 libnes1 infiniband-diags mstflint opensm perftest srptools libibverbs-dev librdmacm-dev
-    sudo apt -y install libibcm1 libibverbs1 ibverbs-utils librdmacm1 ibutils libcxgb3-1 libibmad5 libibumad3 libmlx4-1 libmthca1 libnes1 infiniband-diags mstflint opensm perftest srptools libibverbs-dev librdmacm-dev
-    sudo apt -y install libmthca-dev
+    sudo apt install -y libibcm1 libibverbs1 ibverbs-utils librdmacm1 ibutils libcxgb3-1 libibmad5 libibumad3 libmlx4-1 libmthca1 libnes1 infiniband-diags mstflint opensm perftest srptools libibverbs-dev librdmacm-dev
 
     sudo modprobe rdma_cm
     sudo modprobe ib_uverbs
@@ -87,6 +85,21 @@ then
     sudo modprobe iw_cxgb4
     sudo modprobe iw_nes
     sudo modprobe iw_c2
+elif [[ $1 = "3" ]]
+then
+    if [[ $HOSTNAME = "node0" ]]
+    then
+        pushd ~/oblivious-experiments/c
+        gcc leap_connect.c -o leap_connect
+        ./leap_connect rdma://1,192.168.0.12:9400
+        pushd /mydata/Leap/example
+        make
+        popd
+        popd
+    elif [[ $HOSTNAME = "node1" ]]
+    then
+        echo "Run: /mydata/Leap/daemon 192.168.0.12:9400"
+    fi
 else
     echo "First argument should be 1, 2, or 3"
 fi
