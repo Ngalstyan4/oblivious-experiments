@@ -85,9 +85,19 @@ then
     sudo modprobe iw_cxgb4
     sudo modprobe iw_nes
     sudo modprobe iw_c2
+
+    if [[ $HOSTNAME = node0* ]]
+    then
+        sudo ifconfig ib0 192.168.0.11/24
+    elif [[ $HOSTNAME = node1* ]]
+    then
+        sudo ifconfig ib0 192.168.0.12/24
+    fi
+    sudo ifconfig ib0 up
+    echo "Before proceeding, check dmesg and wait until you see \"ib0: link becomes ready\""
 elif [[ $1 = "3" ]]
 then
-    if [[ $HOSTNAME = "node0" ]]
+    if [[ $HOSTNAME = node0* ]]
     then
         pushd ~/oblivious-experiments/c
         gcc leap_connect.c -o leap_connect
@@ -96,10 +106,11 @@ then
         make
         popd
         popd
-    elif [[ $HOSTNAME = "node1" ]]
+    elif [[ $HOSTNAME = node1* ]]
     then
         echo "Run: /mydata/Leap/daemon 192.168.0.12:9400"
     fi
+    echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 else
     echo "First argument should be 1, 2, or 3"
 fi
