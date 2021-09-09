@@ -39,8 +39,7 @@ int main(int argc, char *argv[])
     std::cout << a.nonZeros() << " " << b.nonZeros() << std::endl;
 
     // Multiplying matrix a and b and storing in array mult
-    Eigen::SparseMatrix<double> result;
-    result = a * b;
+    Eigen::SparseMatrix<double> result(a * b);
     std::cout << result.sum() << std::endl;
     std::cout << "done, waiting for kernel cleanup" << std::endl;
     }
