@@ -143,7 +143,8 @@ function run_experiment {
 	    cgroup_init
 	    # need to run cgroup_add in a subshell to make sure all processes of cgroup exit before next iteration
 	    # of the loop when cgroup_init tries to reset the cgroup
-	    cgroup_limit_mem $(($ratio*$PROGRAM_REQUESTED_NUM_PAGES*$BYTES_PER_MEMORY_PAGE/100))
+	    # subtract 8 MB to account for Fastswap's overage memory usage
+	    cgroup_limit_mem $((($ratio*$PROGRAM_REQUESTED_NUM_PAGES*$BYTES_PER_MEMORY_PAGE/100)-(8*1024*1024))
 	    ftrace_begin
 	    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.$ratio.csv" &
 	    NIC_MONITOR=$!
