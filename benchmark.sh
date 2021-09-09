@@ -1,10 +1,11 @@
 #!/bin/bash
 OBL_DIR="/mydata/oblivious"
-NIC_DEVICE="mlx5_3"
+NIC_DEVICE="mlx4_0"
 RESULTS_DIR="experiment_results"
 ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
 ALL_RATIOS=${RATIOS:-$ALL_RATIOS}
-APP_CPUS=`seq 8 19`
+APP_CPUS=`seq 0 4`
+APP_CPUS=${CPUS:-$APP_CPUS}
 POSTPROCESS_FETCH_BATCH_SIZE=50
 PYTHON="$HOME/miniconda3/bin/python"
 
@@ -155,7 +156,7 @@ function run_experiment {
 	    # the pipe manipulation at the end of the line below swaps stdout and stderr so RUN_TIME variable
 	    # will capture %U %S %E" but the program output wil be printed in terminal (as stderr though!!)
 	    # ASSUMES THE PROGRAM RUN DOES NOT PRODUCE ANY STDERR
-	    RUN_TIME=$((/usr/bin/time -f "%U,%S,%E" $PROGRAM_INVOCATION) 3>&2 2>&1 1>&3)
+	    RUN_TIME=$((/usr/bin/time -f "%U,%S,%E,%F,%R" $PROGRAM_INVOCATION) 3>&2 2>&1 1>&3)
 	    echo "$RUN_TIME" # becomes out of the subshell and is communicated back to the parent
 	    #subshell END
 	    )
@@ -163,7 +164,7 @@ function run_experiment {
 
 	    PAGES_SWAPPED_IN=$((($(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")-$PAGES_SWAPPED_IN) * 4 / 4096))
 	    PAGES_SWAPPED_OUT=$((($(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")-$PAGES_SWAPPED_OUT) * 4 / 4096))
-	    TIME_AND_SWAP_RESULTS_HEADER="RATIO,USER,SYSTEM,WALLCLOCK,PAGES_EVICTED,PAGES_SWAPPED_IN"
+	    TIME_AND_SWAP_RESULTS_HEADER="RATIO,USER,SYSTEM,WALLCLOCK,MAJOR_FAULTS,MINOR_FAULTS,PAGES_EVICTED,PAGES_SWAPPED_IN"
 	    TIME_AND_SWAP_RESULTS_ARR+=("$ratio,$RUN_TIME,$PAGES_SWAPPED_OUT,$PAGES_SWAPPED_IN")
 	    ftrace_end $ratio
 	    cgroup_end $ratio
@@ -232,11 +233,12 @@ if [ ! -f "/data/traces/$EXPERIMENT_NAME/main.bin.0" ]; then
 	read -p "It seems a trace does not exist for the application, would you like to trace it? [y/n]" yn
 	if [[ $yn == "y" ]]; then
 		pushd $OBL_DIR/injector
+		./cli.sh tape_ops 1
 		./cli.sh us_size 10
 		popd
 		mkdir -p /data/traces/$EXPERIMENT_NAME
 		GOMP_CPU_AFFINITY="1" OMP_SCHEDULE=static taskset -c 1 $PROGRAM_INVOCATION
-		$PYTHON ../tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
 	fi
 fi
 
@@ -244,7 +246,7 @@ fi
 if [ ! -f "/data/traces/$EXPERIMENT_NAME/10/main.tape.0" ]; then
 	read -p "It seems a raw trace exists but not a postprocessed one. Would you like to postprocess it? [y/n]" yn
 	if [[ $yn == "y" ]]; then
-		$PYTHON ../tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
 	fi
 fi
 

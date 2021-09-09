@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 
     // Multiplying matrix a and b and storing in array mult
     Eigen::MatrixXd result;
-    result = a * b;
+    result.noalias() = a * b;
     std::cout << result.sum() << std::endl;
     std::cout << "done, waiting for kernel cleanup" << std::endl;
     }

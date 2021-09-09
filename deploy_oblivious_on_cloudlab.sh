@@ -7,9 +7,11 @@ SWAP_PATH=/mydata/swapfile
 # todo:: update the lines below to choose the interface automatically
 
 # interface for 25G NICs on xl170
-IFACE=ens1f1
+#IFACE=ens1f1
 # interface for 10G programmable NICs in multiswitch experiments
-IFACE=eno50
+#IFACE=eno50
+# interface in APT cluster where we can run Leap experiments
+IFACE=ib0
 
 if [[ $1 = "1" ]]
 then
@@ -152,7 +154,7 @@ then
     then
         sudo ifconfig $IFACE 10.0.0.2 netmask 255.0.0.0 up
 	pushd /mydata/oblivious/syncswap/farmemserver
-	sed -i 's/NUM_PROCS = 8;/NUM_PROCS = 20;/' rmserver.c
+	sed -i "s/NUM_PROCS = 8;/NUM_PROCS = $(nproc --all);/" rmserver.c
 	make
 	popd
     fi
