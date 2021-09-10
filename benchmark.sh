@@ -140,11 +140,25 @@ function run_experiment {
 	        done
 	    fi
 	    echoG "Begin experiment with ration ratio: $ratio\tneeded total pages: $PROGRAM_REQUESTED_NUM_PAGES (found $num_tapes tapes)"
+            # Clear performance counters, since on the Leap cluster with mlx4 it's only 32 bits
+	    perfquery -R -a
 	    cgroup_init
 	    # need to run cgroup_add in a subshell to make sure all processes of cgroup exit before next iteration
 	    # of the loop when cgroup_init tries to reset the cgroup
+	    TAPE_SIZE=$(du -b -c /data/traces/$EXPERIMENT_NAME/$ratio/*.tape.* | tail -n 1 | cut -f 1)
+
+	    CGROUP_LIMIT=$(($ratio*$PROGRAM_REQUESTED_NUM_PAGES*$BYTES_PER_MEMORY_PAGE/100))
+
 	    # subtract 8 MB to account for Fastswap's overage memory usage
-	    cgroup_limit_mem $((($ratio*$PROGRAM_REQUESTED_NUM_PAGES*$BYTES_PER_MEMORY_PAGE/100)-(8*1024*1024))
+	    #CGROUP_LIMIT=$((${CGROUP_LIMIT}-(8*1024*1024)))
+
+	    # subtract size of tapes to account for that memory usage
+	    #if [[ $EXPERIMENT_TYPE = tape* ]]
+            #then
+            #    CGROUP_LIMIT=$((${CGROUP_LIMIT}-$TAPE_SIZE))
+            #fi
+
+	    cgroup_limit_mem $CGROUP_LIMIT
 	    ftrace_begin
 	    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.$ratio.csv" &
 	    NIC_MONITOR=$!
@@ -162,9 +176,18 @@ function run_experiment {
 	    #subshell END
 	    )
 	    kill -9 $NIC_MONITOR
-
-	    PAGES_SWAPPED_IN=$((($(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")-$PAGES_SWAPPED_IN) * 4 / 4096))
-	    PAGES_SWAPPED_OUT=$((($(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")-$PAGES_SWAPPED_OUT) * 4 / 4096))
+	    PAGES_SWAPPED_IN_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")
+	    PAGES_SWAPPED_OUT_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")
+	    PAGES_SWAPPED_IN=$(((${PAGES_SWAPPED_IN_FINAL}-${PAGES_SWAPPED_IN}) * 4 / 4096))
+	    PAGES_SWAPPED_OUT=$(((${PAGE_SWAPPED_OUT_FINAL}-${PAGES_SWAPPED_OUT}) * 4 / 4096))
+	    if [[ $PAGES_SWAPPED_IN_FINAL = $((0xFFFFFFFF)) ]]
+	    then
+		    PAGES_SWAPPED_IN=-1
+	    fi
+            if [[ $PAGES_SWAPPED_OUT_FINAL = $((0xFFFFFFFF)) ]]
+            then
+                    PAGES_SWAPPED_OUT=-1
+            fi
 	    TIME_AND_SWAP_RESULTS_HEADER="RATIO,USER,SYSTEM,WALLCLOCK,MAJOR_FAULTS,MINOR_FAULTS,PAGES_EVICTED,PAGES_SWAPPED_IN"
 	    TIME_AND_SWAP_RESULTS_ARR+=("$ratio,$RUN_TIME,$PAGES_SWAPPED_OUT,$PAGES_SWAPPED_IN")
 	    ftrace_end $ratio

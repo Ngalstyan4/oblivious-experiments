@@ -134,7 +134,8 @@ then
         echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
         echo "aslr : $(cat /proc/sys/kernel/randomize_va_space)"
         echo "transparent huge pages: $(cat /sys/kernel/mm/transparent_hugepage/enabled)"
-	echo 0 | sudo tee /proc/sys/kernel/numa_balancing
+        echo 0 | sudo tee /proc/sys/kernel/numa_balancing
+        echo "numa balancing: $(cat /proc/sys/kernel/numa_balancing)"
 
         sudo ifconfig $IFACE 10.0.0.1 netmask 255.0.0.0 up
         pushd /mydata/oblivious/syncswap/drivers

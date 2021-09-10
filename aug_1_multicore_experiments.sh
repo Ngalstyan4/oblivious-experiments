@@ -7,7 +7,7 @@ sudo chown $USER -R /data
 #sudo GOMP_CPU_AFFINITY="0-6" OMP_SCHEDULE=static OMP_NUM_THREADS=7 ./benchmark.sh torch_par $((148000)) taskset -c 0,1,2,3,4,5,6 ./cpp/torch_example/build/infer20
 #sudo GOMP_CPU_AFFINITY="0-3" OMP_SCHEDULE=static OMP_NUM_THREADS=4 ./benchmark.sh torch_par4 $((148000)) taskset -c 0,1,2,3 ./cpp/torch_example/build/infer20
 #sudo GOMP_CPU_AFFINITY="0" OMP_SCHEDULE=static OMP_NUM_THREADS=1 ./benchmark.sh torch $((148000)) taskset -c 0 ./cpp/torch_example/build/infer
-for cnt in {9..19}
+for cnt in {8..19}
 do
 	ps ax | grep nic_monitor| awk '{print $1}'| xargs sudo kill -9
 	sudo rm -r /data/traces/mmult_eigen_par/*
