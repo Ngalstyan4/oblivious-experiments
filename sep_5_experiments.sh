@@ -10,6 +10,9 @@ then
 fi
 
 sudo rm -rf /data/traces/*
+yes | sudo ./benchmark.sh python 107903 taskset -c 0 ~/miniconda3/bin/python python/mmult.py 4 4096 mat
+
+sudo rm -rf /data/traces/*
 yes | sudo ./benchmark.sh mmult_eigen 101394 taskset -c 0 ./cpp/mmult_eigen 4 4096 mat
 
 sudo rm -rf /data/traces/*
