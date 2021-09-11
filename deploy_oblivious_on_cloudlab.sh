@@ -9,9 +9,9 @@ SWAP_PATH=/mydata/swapfile
 # interface for 25G NICs on xl170
 #IFACE=ens1f1
 # interface for 10G programmable NICs in multiswitch experiments
-#IFACE=eno50
+IFACE=eno50
 # interface in APT cluster where we can run Leap experiments
-IFACE=ib0
+#IFACE=ib0
 
 if [[ $1 = "1" ]]
 then
