@@ -1,6 +1,7 @@
 #!/bin/bash
 OBL_DIR="/mydata/oblivious"
-NIC_DEVICE="mlx5_3"
+#NIC_DEVICE="mlx5_3"
+NIC_DEVICE="mlx5_1"
 #NIC_DEVICE="mlx4_0"
 RESULTS_DIR="experiment_results"
 ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
@@ -144,8 +145,13 @@ function run_experiment {
 	        done
 	    fi
 	    echoG "Begin experiment with ration ratio: $ratio\tneeded total pages: $PROGRAM_REQUESTED_NUM_PAGES (found $num_tapes tapes)"
-            # Clear performance counters, since on the Leap cluster with mlx4 it's only 32 bits
-	    perfquery -R -a
+	    if [[ $NIC_DEVICE = mlx4* ]]
+	    then
+		    # Clear performance counters, since on the Leap cluster with mlx4 it's only 32 bits
+		    perfquery -R -a
+	    fi
+
+	    ps ax | grep nic_monitor | awk '{print $1}' | xargs sudo kill -9
 	    cgroup_init
 	    # need to run cgroup_add in a subshell to make sure all processes of cgroup exit before next iteration
 	    # of the loop when cgroup_init tries to reset the cgroup
