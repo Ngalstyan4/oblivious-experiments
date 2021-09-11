@@ -9,6 +9,9 @@ APP_CPUS=${CPUS:-$APP_CPUS}
 POSTPROCESS_FETCH_BATCH_SIZE=50
 PYTHON="$HOME/miniconda3/bin/python"
 
+DEFAULT_US_SIZE=10
+US_SIZE=${US:-$DEFAULT_US_SIZE}
+
 EXPERIMENT_NAME=${1}
 EXPERIMENT_TYPE="" #"no_prefetching"|"linux_prefetching"|"tape_prefetching"
 PROGRAM_REQUESTED_NUM_PAGES=${2} # 134244
@@ -145,7 +148,7 @@ function run_experiment {
 	    cgroup_init
 	    # need to run cgroup_add in a subshell to make sure all processes of cgroup exit before next iteration
 	    # of the loop when cgroup_init tries to reset the cgroup
-	    TAPE_SIZE=$(du -b -c /data/traces/$EXPERIMENT_NAME/$ratio/*.tape.* | tail -n 1 | cut -f 1)
+	    #TAPE_SIZE=$(du -b -c /data/traces/$EXPERIMENT_NAME/$ratio/*.tape.* | tail -n 1 | cut -f 1)
 
 	    CGROUP_LIMIT=$(($ratio*$PROGRAM_REQUESTED_NUM_PAGES*$BYTES_PER_MEMORY_PAGE/100))
 
@@ -258,7 +261,7 @@ if [ ! -f "/data/traces/$EXPERIMENT_NAME/main.bin.0" ]; then
 	if [[ $yn == "y" ]]; then
 		pushd $OBL_DIR/injector
 		./cli.sh tape_ops 1
-		./cli.sh us_size 10
+		./cli.sh us_size $US_SIZE
 		popd
 		mkdir -p /data/traces/$EXPERIMENT_NAME
 		GOMP_CPU_AFFINITY="1" OMP_SCHEDULE=static taskset -c 1 $PROGRAM_INVOCATION
@@ -291,13 +294,13 @@ popd
 #report_results
 #reset_results
 
-EXPERIMENT_TYPE="linux_prefetching"
-echoG ">>> Experiments with 8page swapins"
-echo 3 > /proc/sys/vm/page-cluster
-run_experiment $ALL_RATIOS
+#EXPERIMENT_TYPE="linux_prefetching"
+#echoG ">>> Experiments with 8page swapins"
+#echo 3 > /proc/sys/vm/page-cluster
+#run_experiment $ALL_RATIOS
 
-report_results
-reset_results
+#report_results
+#reset_results
 
 EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
 pushd $OBL_DIR/injector
