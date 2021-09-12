@@ -13,6 +13,9 @@ PYTHON="$HOME/miniconda3/bin/python"
 
 DEFAULT_US_SIZE=10
 US_SIZE=${US:-$DEFAULT_US_SIZE}
+POSTPROCESS_PERCENT=${POSTPROCESS_PERCENT:-100}
+
+SKIP_LINUX=${SKIP_LINUX:-false}
 
 EXPERIMENT_NAME=${1}
 EXPERIMENT_TYPE="" #"no_prefetching"|"linux_prefetching"|"tape_prefetching"
@@ -271,8 +274,8 @@ if [ ! -f "/data/traces/$EXPERIMENT_NAME/main.bin.0" ]; then
 		./cli.sh us_size $US_SIZE
 		popd
 		mkdir -p /data/traces/$EXPERIMENT_NAME
-		GOMP_CPU_AFFINITY="1" OMP_SCHEDULE=static taskset -c 1 $PROGRAM_INVOCATION
-		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+		GOMP_CPU_AFFINITY="1" OMP_SCHEDULE=static /usr/bin/time -v taskset -c 1 $PROGRAM_INVOCATION
+		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE $POSTPROCESS_PERCENT
 	fi
 fi
 
@@ -280,7 +283,7 @@ fi
 if [ ! -f "/data/traces/$EXPERIMENT_NAME/10/main.tape.0" ]; then
 	read -p "It seems a raw trace exists but not a postprocessed one. Would you like to postprocess it? [y/n]" yn
 	if [[ $yn == "y" ]]; then
-		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+		/usr/bin/time -v $PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE $POSTPROCESS_PERCENT
 	fi
 fi
 
@@ -309,16 +312,19 @@ popd
 #report_results
 #reset_results
 
-EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
-pushd $OBL_DIR/injector
-./cli.sh async_writes 1
-popd
-echoG ">>> Experiments with 8page swapins, async writes"
-echo 3 > /proc/sys/vm/page-cluster
-run_experiment $ALL_RATIOS
+if ! $SKIP_LINUX
+then
+	EXPERIMENT_TYPE="linux_prefetching_asyncwrites"
+	pushd $OBL_DIR/injector
+	./cli.sh async_writes 1
+	popd
+	echoG ">>> Experiments with 8page swapins, async writes"
+	echo 3 > /proc/sys/vm/page-cluster
+	run_experiment $ALL_RATIOS
 
-report_results
-reset_results
+	report_results
+	reset_results
+fi
 
 #EXPERIMENT_TYPE="linux_prefetching_ssdopt"
 #echoG ">>> Experiments with swap write path SSD optimization"
