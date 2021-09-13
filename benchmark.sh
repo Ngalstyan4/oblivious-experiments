@@ -189,7 +189,7 @@ function run_experiment {
 	    PAGES_SWAPPED_IN_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")
 	    PAGES_SWAPPED_OUT_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")
 	    PAGES_SWAPPED_IN=$(((${PAGES_SWAPPED_IN_FINAL}-${PAGES_SWAPPED_IN}) * 4 / 4096))
-	    PAGES_SWAPPED_OUT=$(((${PAGE_SWAPPED_OUT_FINAL}-${PAGES_SWAPPED_OUT}) * 4 / 4096))
+	    PAGES_SWAPPED_OUT=$(((${PAGES_SWAPPED_OUT_FINAL}-${PAGES_SWAPPED_OUT}) * 4 / 4096))
 	    if [[ $PAGES_SWAPPED_IN_FINAL = $((0xFFFFFFFF)) ]]
 	    then
 		    PAGES_SWAPPED_IN=-1
