@@ -9,8 +9,8 @@ then
 	ln -s /mydata/traces /data/traces
 fi
 
-export US_SIZES="2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536"
-export RATIOS="30"
+export US_SIZES="10"
+export RATIOS="5 10 15 20 25 30 35 40 45 50"
 RUNTIME_RATIO=30
 
 sudo rm -rf /data/traces/*
