@@ -11,6 +11,13 @@ APP_CPUS=${CPUS:-$APP_CPUS}
 POSTPROCESS_FETCH_BATCH_SIZE=50
 PYTHON="$HOME/miniconda3/bin/python"
 
+RATIOS_ARR=($ALL_RATIOS)
+if [[ ${#RATIOS_ARR[@]} = 0 ]]
+then
+	echo "RATIOS list is empty"
+	exit 1
+fi
+
 DEFAULT_US_SIZE=10
 US_SIZE=${US:-$DEFAULT_US_SIZE}
 
@@ -277,7 +284,7 @@ if [ ! -f "/data/traces/$EXPERIMENT_NAME/main.bin.0" ]; then
 fi
 
 
-if [ ! -f "/data/traces/$EXPERIMENT_NAME/10/main.tape.0" ]; then
+if [ ! -f "/data/traces/$EXPERIMENT_NAME/${RATIOS_ARR[0]}/main.tape.0" ]; then
 	read -p "It seems a raw trace exists but not a postprocessed one. Would you like to postprocess it? [y/n]" yn
 	if [[ $yn == "y" ]]; then
 		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
