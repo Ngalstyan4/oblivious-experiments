@@ -42,7 +42,7 @@ function run_experiment() {
 	local RATIO=$1
 	local MODE=$2 # either "readahead" or "prefetch"
 	local SETUP_NAME=$3
-	
+
 	# Set mode to "readahead" or "prefetch" as appropriate
 	$CLI cmd=$MODE
 	sleep 1
@@ -58,7 +58,7 @@ function run_experiment() {
 	sleep 3 &
 	$CLI cmd="init" process_name="sleep"
 	wait
-	
+
 
 	MAJFLT=$(cat "/sys/fs/cgroup/memory/$CGROUP_NAME/memory.stat" | grep "total_pgmajfault" | cut -d ' ' -f 2)
 	FLT=$(cat "/sys/fs/cgroup/memory/$CGROUP_NAME/memory.stat" | grep "total_pgfault" | cut -d ' ' -f 2)
@@ -72,7 +72,7 @@ function run_experiment() {
 	PAGES_SWAPPED_IN_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")
 	PAGES_SWAPPED_OUT_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")
 	PAGES_SWAPPED_IN=$(((${PAGES_SWAPPED_IN_FINAL}-${PAGES_SWAPPED_IN}) * 4 / 4096))
-	PAGES_SWAPPED_OUT=$(((${PAGE_SWAPPED_OUT_FINAL}-${PAGES_SWAPPED_OUT}) * 4 / 4096))
+	PAGES_SWAPPED_OUT=$(((${PAGES_SWAPPED_OUT_FINAL}-${PAGES_SWAPPED_OUT}) * 4 / 4096))
 	if [[ $PAGES_SWAPPED_IN_FINAL = $((0xFFFFFFFF)) ]]
 	then
 		PAGES_SWAPPED_IN=-1
