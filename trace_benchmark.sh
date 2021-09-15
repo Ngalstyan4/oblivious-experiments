@@ -5,7 +5,8 @@ PYTHON="$HOME/miniconda3/bin/python"
 
 EXPERIMENT_NAME=$1
 MEMORY_SIZE_PAGES=$2
-INVOCATION=${@:3}
+RUNTIME_RATIO=$3
+INVOCATION=${@:4}
 
 # I copied this from benchmark.sh
 POSTPROCESS_FETCH_BATCH_SIZE=50
@@ -68,7 +69,16 @@ do
 		postprocess $RATIO
 		POSTP_STATS=$RUN_TIME
 		echo $US_SIZE,$RATIO,$POSTP_STATS,$TAPE_SIZE >> $POSTP_STATS_FILE
+
+		if [[ $RATIO != $RUNTIME_RATIO ]]
+		then
+			pushd /data/traces/$EXPERIMENT_NAME
+			sudo rm -rf $RUNTIME_RATIO
+			sudo mv $RATIO $RUNTIME_RATIO
+			popd
+		fi
+
+		echo y | RATIOS=$RUNTIME_RATIO US=$US_SIZE ./benchmark.sh $EXPERIMENT_NAME $2 $INVOCATION
+		sudo mv experiment_results/$EXPERIMENT_NAME $OUTPUT_DIR/${US_SIZE}-$RATIO
 	done
-	echo y | RATIOS=$RATIOS US=$US_SIZE ./benchmark.sh $EXPERIMENT_NAME $2 $INVOCATION
-	sudo mv experiment_results/$EXPERIMENT_NAME $OUTPUT_DIR/$US_SIZE
 done
