@@ -95,8 +95,12 @@ function ftrace_end {
 
 	    SYNC_TIME=$(cat trace_stat/function$p | grep fetch_page_fault_handler | awk -F' ' '{print $3}')
 
-	    FTRACE_RESULTS_HEADER="RATIO,CPU,PAGE_FAULT_HIT,PAGE_FAULT_TIME,PAGE_FAULT_S2,SWAPIN_HIT,SWAPIN_TIME,SWAPIN_S2,EVICT_HIT,EVICT_TIME,EVICT_S2,SYNC_TIME"
-	    FTRACE_RESULTS_ARR+=("$1,$p,$PAGE_FAULT_HIT,$PAGE_FAULT_TIME,$PAGE_FAULT_S2,$SWAPIN_HIT,$SWAPIN_TIME,$SWAPIN_S2,$EVICT_HIT,$EVICT_TIME,$EVICT_S2,$SYNC_TIME")
+	    LOCK_MINPF_HIT=$(cat trace_stat/function$p | grep lock_page_or_retry_ | awk -F' ' '{print $2}')
+	    LOCK_MINPF_TIME=$(cat trace_stat/function$p | grep lock_page_or_retry_ | awk -F' ' '{print $3}')
+	    LOCK_MINPF_S2=$(cat trace_stat/function$p | grep lock_page_or_retry_ | awk -F' ' '{print $7}')
+
+	    FTRACE_RESULTS_HEADER="RATIO,CPU,PAGE_FAULT_HIT,PAGE_FAULT_TIME,PAGE_FAULT_S2,SWAPIN_HIT,SWAPIN_TIME,SWAPIN_S2,EVICT_HIT,EVICT_TIME,EVICT_S2,SYNC_TIME,LOCK_MINPF_HIT,LOCK_MINPF_TIME,LOCK_MINPF_S2"
+	    FTRACE_RESULTS_ARR+=("$1,$p,$PAGE_FAULT_HIT,$PAGE_FAULT_TIME,$PAGE_FAULT_S2,$SWAPIN_HIT,$SWAPIN_TIME,$SWAPIN_S2,$EVICT_HIT,$EVICT_TIME,$EVICT_S2,$SYNC_TIME,$LOCK_MINPF_HIT,$LOCK_MINPF_TIME,$LOCK_MINPF_S2")
 
 	    echoG "#### PROCESSOR $p TRACE"
 	    cat trace_stat/function$p
