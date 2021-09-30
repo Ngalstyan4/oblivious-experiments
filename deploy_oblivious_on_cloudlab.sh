@@ -129,6 +129,12 @@ elif [[ $1 = "4" ]]
 then
     if [[ $HOSTNAME = node0* ]]
     then
+	# make sure there are no other swap devices
+	# not a big deal, none of our codepaths get close to this
+	# as frontswap bipasses IO layer and only uses the swap space
+	# to use its MAX_CAPACITIY as frontswap capacity, but just in case..
+	sudo swapoff -a
+
         sudo swapon $SWAP_PATH
         echo never | sudo tee  /sys/kernel/mm/transparent_hugepage/enabled
         echo 0 | sudo tee /proc/sys/kernel/randomize_va_space

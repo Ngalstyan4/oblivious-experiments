@@ -49,7 +49,7 @@ NC='\033[0m'
 
 BYTES_PER_MEMORY_PAGE=4096
 # CGROUP constants
-CGROUP_NAME='prefetch_ctrl'
+CGROUP_NAME="prefetch_ctrl_$RANDOM"
 
 function echoG() {
     printf "${GREEN} $1 ${NC} \n"
@@ -113,7 +113,7 @@ function cgroup_init {
 	mount -t cgroup2 nodev /cgroup2
 	sh -c "echo '+memory' > /cgroup2/cgroup.subtree_control"
    fi
-   rmdir "/cgroup2/$CGROUP_NAME"
+   rmdir "/cgroup2/$CGROUP_NAME" 2> /dev/null
    mkdir "/cgroup2/$CGROUP_NAME"
 }
 
@@ -136,6 +136,8 @@ function cgroup_end {
     echoG "major fault: $NUM_MAJ_FAULT, minor fault: $((NUM_FAULT-NUM_MAJ_FAULT))"
     CGROUP_RESULTS_HEADER="RATIO,NUM_FAULTS,NUM_MAJOR_FAULTS"
     CGROUP_RESULTS_ARR+=("$1,$NUM_FAULT,$NUM_MAJ_FAULT")
+
+    rmdir "/cgroup2/$CGROUP_NAME"
     echo
     echo
 }
