@@ -21,18 +21,14 @@ SEED=int(sys.argv[1])
 SIZE=int(sys.argv[2])
 OP=sys.argv[3]
 
-x = np.random.rand(1,1)
-x = np.matmul(x,x)
-np.random.seed(SEED)
-
 syscall(mem_pattern_trace, TRACE_START | TRACE_AUTO)
 a = np.random.rand(SIZE,SIZE)
 b = np.random.rand(SIZE,SIZE)
 c = np.matmul(a,b)
-#c = a + b
+total = c.sum()
 
 syscall(mem_pattern_trace, TRACE_END)
 rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-print("Result: %d" % c.sum())
+print("Result: %d" % total)
 print("Max RSS: %d kb or %d pages" % (rss, rss/4))
 sys.exit(0)
