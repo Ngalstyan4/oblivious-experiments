@@ -18,10 +18,11 @@ then
 	exit 1
 fi
 
-DEFAULT_US_SIZE=10
+DEFAULT_US_SIZE=512
 US_SIZE=${US:-$DEFAULT_US_SIZE}
 
 EXPERIMENT_NAME=${1}
+PROGRAM_NAME=${PROG_NAME:-$EXPERIMENT_NAME}
 EXPERIMENT_TYPE="" #"no_prefetching"|"linux_prefetching"|"tape_prefetching"
 PROGRAM_REQUESTED_NUM_PAGES=${2} # 134244
 PROGRAM_INVOCATION=${@:3} #"./mmult_eigen 44 4096 tt"
@@ -103,8 +104,12 @@ function ftrace_end {
 	    TPO_PF_TIME=$(cat trace_stat/function$p | grep page_fault_handler_3po | awk -F' ' '{print $3}')
 	    TPO_PF_S2=$(cat trace_stat/function$p | grep page_fault_handler_3po | awk -F' ' '{print $7}')
 
-	    FTRACE_RESULTS_HEADER="RATIO,CPU,PAGE_FAULT_HIT,PAGE_FAULT_TIME,PAGE_FAULT_S2,SWAPIN_HIT,SWAPIN_TIME,SWAPIN_S2,EVICT_HIT,EVICT_TIME,EVICT_S2,SYNC_TIME,LOCK_MINPF_HIT,LOCK_MINPF_TIME,LOCK_MINPF_S2,3PO_PF_HIT,3PO_PF_TIME,3PO_PF_S2"
-	    FTRACE_RESULTS_ARR+=("$1,$p,$PAGE_FAULT_HIT,$PAGE_FAULT_TIME,$PAGE_FAULT_S2,$SWAPIN_HIT,$SWAPIN_TIME,$SWAPIN_S2,$EVICT_HIT,$EVICT_TIME,$EVICT_S2,$SYNC_TIME,$LOCK_MINPF_HIT,$LOCK_MINPF_TIME,$LOCK_MINPF_S2,$TPO_PF_HIT,$TPO_PF_TIME,$TPO_PF_S2")
+	    PREFETCH_TIME=$(cat trace_stat/function$p | grep prefetch_work_func | awk -F' ' '{print $3}')
+	    SWAP_CACHE_READ_TIME=$(cat trace_stat/function$p | grep __read_swap_cache_async | awk -F' ' '{print $3}')
+	    BUMP_NEXT_FETCH_TIME=$(cat trace_stat/function$p | grep bump_next_fetch | awk -F' ' '{print $3}')
+
+	    FTRACE_RESULTS_HEADER="RATIO,CPU,PAGE_FAULT_HIT,PAGE_FAULT_TIME,PAGE_FAULT_S2,SWAPIN_HIT,SWAPIN_TIME,SWAPIN_S2,EVICT_HIT,EVICT_TIME,EVICT_S2,SYNC_TIME,LOCK_MINPF_HIT,LOCK_MINPF_TIME,LOCK_MINPF_S2,3PO_PF_HIT,3PO_PF_TIME,3PO_PF_S2,PREFETCH_TIME,SWAP_CACHE_READ_TIME,BUMP_NEXT_FETCH_TIME"
+	    FTRACE_RESULTS_ARR+=("$1,$p,$PAGE_FAULT_HIT,$PAGE_FAULT_TIME,$PAGE_FAULT_S2,$SWAPIN_HIT,$SWAPIN_TIME,$SWAPIN_S2,$EVICT_HIT,$EVICT_TIME,$EVICT_S2,$SYNC_TIME,$LOCK_MINPF_HIT,$LOCK_MINPF_TIME,$LOCK_MINPF_S2,$TPO_PF_HIT,$TPO_PF_TIME,$TPO_PF_S2,$PREFETCH_TIME,$SWAP_CACHE_READ_TIME,$BUMP_NEXT_FETCH_TIME")
 
 	    echoG "#### PROCESSOR $p TRACE"
 	    cat trace_stat/function$p
@@ -153,12 +158,12 @@ function run_experiment {
 	for ratio in $@
 	do
 	    num_tapes=0
-            if [ -d /data/traces/$EXPERIMENT_NAME/$ratio ]
+            if [ -d /data/traces/$PROGRAM_NAME/$ratio ]
             then
-	        for tape in /data/traces/$EXPERIMENT_NAME/$ratio/*.tape.*
+	        for tape in /data/traces/$PROGRAM_NAME/$ratio/*.tape.*
 	        do
 		    ((num_tapes+=1))
-		    ln -sf "$tape" "/data/traces/$EXPERIMENT_NAME/`basename $tape`"
+		    ln -sf "$tape" "/data/traces/$PROGRAM_NAME/`basename $tape`"
 	        done
 	    fi
 	    echoG "Begin experiment with ration ratio: $ratio\tneeded total pages: $PROGRAM_REQUESTED_NUM_PAGES (found $num_tapes tapes)"
@@ -172,7 +177,7 @@ function run_experiment {
 	    cgroup_init
 	    # need to run cgroup_add in a subshell to make sure all processes of cgroup exit before next iteration
 	    # of the loop when cgroup_init tries to reset the cgroup
-	    #TAPE_SIZE=$(du -b -c /data/traces/$EXPERIMENT_NAME/$ratio/*.tape.* | tail -n 1 | cut -f 1)
+	    #TAPE_SIZE=$(du -b -c /data/traces/$PROGRAM_NAME/$ratio/*.tape.* | tail -n 1 | cut -f 1)
 
 	    CGROUP_LIMIT=$(($ratio*$PROGRAM_REQUESTED_NUM_PAGES*$BYTES_PER_MEMORY_PAGE/100))
 
@@ -280,24 +285,24 @@ if [[ $yn != "y" ]]; then
 	exit
 fi
 
-if [ ! -f "/data/traces/$EXPERIMENT_NAME/main.bin.0" ]; then
+if [ ! -f "/data/traces/$PROGRAM_NAME/main.bin.0" ]; then
 	read -p "It seems a trace does not exist for the application, would you like to trace it? [y/n]" yn
 	if [[ $yn == "y" ]]; then
 		pushd $OBL_DIR/injector
 		./cli.sh tape_ops 1
 		./cli.sh us_size $US_SIZE
 		popd
-		mkdir -p /data/traces/$EXPERIMENT_NAME
+		mkdir -p /data/traces/$PROGRAM_NAME
 		GOMP_CPU_AFFINITY="1" OMP_SCHEDULE=static taskset -c 1 $PROGRAM_INVOCATION
-		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$PROGRAM_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
 	fi
 fi
 
 
-if [ ! -f "/data/traces/$EXPERIMENT_NAME/${RATIOS_ARR[0]}/main.tape.0" ]; then
+if [ ! -f "/data/traces/$PROGRAM_NAME/${RATIOS_ARR[0]}/main.tape.0" ]; then
 	read -p "It seems a raw trace exists but not a postprocessed one. Would you like to postprocess it? [y/n]" yn
 	if [[ $yn == "y" ]]; then
-		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
+		$PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$PROGRAM_NAME/main.bin $PROGRAM_REQUESTED_NUM_PAGES $POSTPROCESS_FETCH_BATCH_SIZE
 	fi
 fi
 
@@ -308,7 +313,7 @@ fi
 pushd $OBL_DIR/injector
 ./cli.sh tape_ops 0
 ./cli.sh ssdopt 0
-./cli.sh async_writes 0
+#./cli.sh async_writes 0
 popd
 
 #echoG ">>> Experiments with single-page swap-ins"
