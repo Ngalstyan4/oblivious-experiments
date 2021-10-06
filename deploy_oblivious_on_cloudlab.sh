@@ -103,7 +103,8 @@ then
     ./miniconda3/bin/conda init
     source ~/.bashrc
     # todo:: there are some others, that I think I forgot. Whoever runs experiments next, please add those
-    pip install jupyter numpy pandas plotly tmuxp chart_studio
+
+    sudo -u $USER /users/$USER/miniconda3/bin/pip install jupyter numpy pandas plotly tmuxp chart_studio
 
     # download torch library for lining with torch workloads
     pushd /mydata
@@ -148,6 +149,10 @@ then
         make BACKEND=RDMA
         sudo insmod fastswap_rdma.ko sport=50000 sip="10.0.0.2" cip="10.0.0.1" nq=20
         sudo insmod fastswap.ko
+	popd
+
+	pushd /mydata/oblivious/injector
+	make
 	popd
 
         sudo mkdir -p /cgroup2
