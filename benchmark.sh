@@ -160,6 +160,7 @@ function cgroup_end {
 
 function run_experiment {
      NUM_PROC=$1
+     RATIOS=${@:2}
     if [[ $NIC_DEVICE = mlx4* ]]
     then
 	    # Clear performance counters, since on the Leap cluster with mlx4 it's only 32 bits
@@ -168,12 +169,13 @@ function run_experiment {
 
     ps ax | grep nic_monitor | awk '{print $1}' | xargs sudo kill -9
     mkdir -p $RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE
-    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.$ratio.csv" &
+    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.csv" &
     NIC_MONITOR=$!
 
+    RET=()
     for i in `seq 1 $NUM_PROC`
     do
-	    RET=$(
+	    v=$(
 	    # collect and do per-process reporting
 	    # all these functions use global variables but since they run in subshells,
 	    # their global variables are in distinct states
@@ -181,16 +183,15 @@ function run_experiment {
 	    run_process $i $RATIOS
 	    report_results $i
 	    )&
+	    RET+=($!)
     done
 
-    # give some time for spawning the processes
-    sleep 4
-
-    while pgrep $PROGRAM_NAME
+    for i in "${RET[@]}"
     do
-	    echo "..waiting for $PROGRAM_NAME with pids `pgrep $PROGRAM_NAME`"
-	    sleep 1
+	    wait $i
+	    echoG "waited $i"
     done
+
     echoG "Done!"
     kill -9 $NIC_MONITOR
 }
