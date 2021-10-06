@@ -8,6 +8,7 @@ ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
 ALL_RATIOS=${RATIOS:-$ALL_RATIOS}
 APP_CPUS=`seq 0 4`
 APP_CPUS=${CPUS:-$APP_CPUS}
+NUM_PROCS=${NUM_PROCS:-1}
 POSTPROCESS_FETCH_BATCH_SIZE=50
 PYTHON="$HOME/miniconda3/bin/python"
 
@@ -118,16 +119,19 @@ function ftrace_end {
 }
 
 function cgroup_init {
+
+   PROC_NUMBER=$1
    if [ ! -f "/cgroup2/cgroup.procs" ]; then
 	mount -t cgroup2 nodev /cgroup2
 	sh -c "echo '+memory' > /cgroup2/cgroup.subtree_control"
    fi
-   rmdir "/cgroup2/$CGROUP_NAME" 2> /dev/null
-   mkdir "/cgroup2/$CGROUP_NAME"
+   rmdir "/cgroup2/"$CGROUP_NAME"_$PROC_NUMBER" 2> /dev/null
+   mkdir "/cgroup2/"$CGROUP_NAME"_$PROC_NUMBER"
 }
 
 function cgroup_add {
-    echo $1 > "/cgroup2/$CGROUP_NAME/cgroup.procs"
+    PROC_NUMBER=$1
+    echo $2 > "/cgroup2/"$CGROUP_NAME"_$PROC_NUMBER/cgroup.procs"
     # Q::chris: you set this in your setup script it it looks like this only
     # allowed/necessary when cgroup does not have any processes and has child cgroups
     # https://www.kernel.org/doc/html/v5.4/admin-guide/cgroup-v2.html
@@ -135,27 +139,70 @@ function cgroup_add {
 }
 
 function cgroup_limit_mem {
-    echo $1 > "/cgroup2/$CGROUP_NAME/memory.high"
+    PROC_NUMBER=$1
+    echo $2 > "/cgroup2/"$CGROUP_NAME"_$PROC_NUMBER/memory.high"
 }
 
 function cgroup_end {
-    CG="/cgroup2/$CGROUP_NAME"
+    PROC_NUMBER=$1
+    RATIO=$2
+    CG="/cgroup2/"$CGROUP_NAME"_$PROC_NUMBER"
     NUM_MAJ_FAULT=$(cat "$CG/memory.stat" | grep "pgmajfault" | awk -F' ' '{print $2}')
     NUM_FAULT=$(cat "$CG/memory.stat" | grep "pgfault" | awk -F' ' '{print $2}')
     echoG "major fault: $NUM_MAJ_FAULT, minor fault: $((NUM_FAULT-NUM_MAJ_FAULT))"
     CGROUP_RESULTS_HEADER="RATIO,NUM_FAULTS,NUM_MAJOR_FAULTS"
-    CGROUP_RESULTS_ARR+=("$1,$NUM_FAULT,$NUM_MAJ_FAULT")
+    CGROUP_RESULTS_ARR+=("$RATIO,$NUM_FAULT,$NUM_MAJ_FAULT")
 
-    rmdir "/cgroup2/$CGROUP_NAME"
+    rmdir $CG
     echo
     echo
 }
 
+function run_experiment {
+     NUM_PROC=$1
+    if [[ $NIC_DEVICE = mlx4* ]]
+    then
+	    # Clear performance counters, since on the Leap cluster with mlx4 it's only 32 bits
+	    perfquery -R -a
+    fi
+
+    ps ax | grep nic_monitor | awk '{print $1}' | xargs sudo kill -9
+    mkdir -p $RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE
+    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.$ratio.csv" &
+    NIC_MONITOR=$!
+
+    for i in `seq 1 $NUM_PROC`
+    do
+	    RET=$(
+	    # collect and do per-process reporting
+	    # all these functions use global variables but since they run in subshells,
+	    # their global variables are in distinct states
+	    reset_results $i
+	    run_process $i $RATIOS
+	    report_results $i
+	    )&
+    done
+
+    # give some time for spawning the processes
+    sleep 4
+
+    while pgrep $PROGRAM_NAME
+    do
+	    echo "..waiting for $PROGRAM_NAME with pids `pgrep $PROGRAM_NAME`"
+	    sleep 1
+    done
+    echoG "Done!"
+    kill -9 $NIC_MONITOR
+}
+
+
 # there is a weird vim-bash script highlighting issue. the subshell syntax confuses all of
 # highlighting after this function
-function run_experiment {
-    mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE"
-	for ratio in $@
+function run_process {
+    PROC_NUMBER=$1
+    RATIOS=${@:2}
+    mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/${PROC_NUMBER}"
+	for ratio in $RATIOS
 	do
 	    num_tapes=0
             if [ -d /data/traces/$PROGRAM_NAME/$ratio ]
@@ -167,14 +214,7 @@ function run_experiment {
 	        done
 	    fi
 	    echoG "Begin experiment with ration ratio: $ratio\tneeded total pages: $PROGRAM_REQUESTED_NUM_PAGES (found $num_tapes tapes)"
-	    if [[ $NIC_DEVICE = mlx4* ]]
-	    then
-		    # Clear performance counters, since on the Leap cluster with mlx4 it's only 32 bits
-		    perfquery -R -a
-	    fi
-
-	    ps ax | grep nic_monitor | awk '{print $1}' | xargs sudo kill -9
-	    cgroup_init
+	    cgroup_init $PROC_NUMBER
 	    # need to run cgroup_add in a subshell to make sure all processes of cgroup exit before next iteration
 	    # of the loop when cgroup_init tries to reset the cgroup
 	    #TAPE_SIZE=$(du -b -c /data/traces/$PROGRAM_NAME/$ratio/*.tape.* | tail -n 1 | cut -f 1)
@@ -190,24 +230,22 @@ function run_experiment {
             #    CGROUP_LIMIT=$((${CGROUP_LIMIT}-$TAPE_SIZE))
             #fi
 
-	    cgroup_limit_mem $CGROUP_LIMIT
+	    cgroup_limit_mem $PROC_NUMBER $CGROUP_LIMIT
 	    ftrace_begin
-	    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.$ratio.csv" &
-	    NIC_MONITOR=$!
 	    PAGES_SWAPPED_IN=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")
 	    PAGES_SWAPPED_OUT=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")
 	    RUN_TIME=$(
 	    #subshell BEGIN
 	    # \/ uncomment the line below if youd like to add the current process (INCLUDING THE BASH SHELL) to the cgroup
-	    cgroup_add 0
+	    cgroup_add $PROC_NUMBER 0
 	    # the pipe manipulation at the end of the line below swaps stdout and stderr so RUN_TIME variable
 	    # will capture %U %S %E" but the program output wil be printed in terminal (as stderr though!!)
 	    # ASSUMES THE PROGRAM RUN DOES NOT PRODUCE ANY STDERR
-	    RUN_TIME=$((/usr/bin/time -f "%U,%S,%E,%F,%R" $PROGRAM_INVOCATION) 3>&2 2>&1 1>&3)
+	    RUN_TIME=$((/usr/bin/time -f "%U,%S,%E,%F,%R" taskset -c $PROC_NUMBER $PROGRAM_INVOCATION) 3>&2 2>&1 1>&3)
 	    echo "$RUN_TIME" # becomes out of the subshell and is communicated back to the parent
 	    #subshell END
 	    )
-	    kill -9 $NIC_MONITOR
+
 	    PAGES_SWAPPED_IN_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_rcv_data")
 	    PAGES_SWAPPED_OUT_FINAL=$(cat "/sys/class/infiniband/$NIC_DEVICE/ports/1/counters/port_xmit_data")
 	    PAGES_SWAPPED_IN=$(((${PAGES_SWAPPED_IN_FINAL}-${PAGES_SWAPPED_IN}) * 4 / 4096))
@@ -223,16 +261,17 @@ function run_experiment {
 	    TIME_AND_SWAP_RESULTS_HEADER="RATIO,USER,SYSTEM,WALLCLOCK,MAJOR_FAULTS,MINOR_FAULTS,PAGES_EVICTED,PAGES_SWAPPED_IN"
 	    TIME_AND_SWAP_RESULTS_ARR+=("$ratio,$RUN_TIME,$PAGES_SWAPPED_OUT,$PAGES_SWAPPED_IN")
 	    ftrace_end $ratio
-	    cgroup_end $ratio
+	    cgroup_end $PROC_NUMBER $ratio
 	    echoG "Runtime: $RUN_TIME"
 
 	done
 }
 
 function report_results {
+    PROC_NUMBER=$1
 
-    mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE"
-    pushd "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE"
+    mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/$PROC_NUMBER"
+    pushd "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/$PROC_NUMBER"
 
 	    echo $FTRACE_RESULTS_HEADER > ftrace_results.csv
 	    echoG $FTRACE_RESULTS_HEADER
@@ -337,10 +376,8 @@ pushd $OBL_DIR/injector
 popd
 echoG ">>> Experiments with 8page swapins, async writes"
 echo 3 > /proc/sys/vm/page-cluster
-run_experiment $ALL_RATIOS
 
-report_results
-reset_results
+run_experiment $NUM_PROCS $ALL_RATIOS
 
 #EXPERIMENT_TYPE="linux_prefetching_ssdopt"
 #echoG ">>> Experiments with swap write path SSD optimization"
@@ -396,10 +433,8 @@ pushd $OBL_DIR/injector
 ./cli.sh unevictable 0
 popd
 
-run_experiment $ALL_RATIOS
+run_experiment $NUM_PROCS $ALL_RATIOS
 
-report_results
-reset_results
 echo 0 > /proc/sys/vm/page-cluster
 
 #EXPERIMENT_TYPE="tape_prefetching_asyncwrites_offload_fetch"
