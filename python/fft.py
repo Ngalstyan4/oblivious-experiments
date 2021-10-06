@@ -33,4 +33,3 @@ syscall(mem_pattern_trace, TRACE_END)
 rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 print("Result:", total)
 print("Max RSS: %d kb or %d pages" % (rss, rss/4))
-sys.exit(0)

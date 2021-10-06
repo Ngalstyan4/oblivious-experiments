@@ -8,6 +8,8 @@ MEMORY_SIZE_PAGES=$2
 RUNTIME_RATIO=$3
 INVOCATION=${@:4}
 
+PROGRAM_NAME=${PROG_NAME:-$EXPERIMENT_NAME}
+
 # I copied this from benchmark.sh
 POSTPROCESS_FETCH_BATCH_SIZE=50
 
@@ -30,21 +32,21 @@ trace() {
 	./cli.sh tape_ops 1
 	./cli.sh us_size $1
 	popd
-	mkdir -p /data/traces/$EXPERIMENT_NAME
+	mkdir -p /data/traces/$PROGRAM_NAME
 
 	# the pipe manipulation at the end of the line below swaps stdout and stderr so RUN_TIME variable
 	# will capture %U %S %E" but the program output wil be printed in terminal (as stderr though!!)
 	# ASSUMES THE PROGRAM RUN DOES NOT PRODUCE ANY STDERR
 	RUN_TIME=$((GOMP_CPU_AFFINITY="1" OMP_SCHEDULE=static /usr/bin/time -f "%U,%S,%E,%F,%R" taskset -c 1 $INVOCATION) 3>&2 2>&1 1>&3 )
-	TRACE_SIZE=$(du -b -c /data/traces/$EXPERIMENT_NAME/$ratio/*.bin.* | tail -n 1 | cut -f 1)
+	TRACE_SIZE=$(du -b -c /data/traces/$PROGRAM_NAME/$ratio/*.bin.* | tail -n 1 | cut -f 1)
 }
 
 postprocess() {
 	# The progress bar writes to standard error, so we can't use the redirection trick from above
 	echo "Postprocessing with ratio $1"
-	/usr/bin/time -o temporary_file -a -f "%U,%S,%E,%F,%R" $PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$EXPERIMENT_NAME/main.bin $MEMORY_SIZE_PAGES $POSTPROCESS_FETCH_BATCH_SIZE $1
+	/usr/bin/time -o temporary_file -a -f "%U,%S,%E,%F,%R" $PYTHON $OBL_DIR/tracer/postprocess.py /data/traces/$PROGRAM_NAME/main.bin $MEMORY_SIZE_PAGES $POSTPROCESS_FETCH_BATCH_SIZE $1
 	RUN_TIME=$(cat temporary_file)
-	TAPE_SIZE=$(du -b -c /data/traces/$EXPERIMENT_NAME/$1/*.tape.* | tail -n 1 | cut -f 1)
+	TAPE_SIZE=$(du -b -c /data/traces/$PROGRAM_NAME/$1/*.tape.* | tail -n 1 | cut -f 1)
 	rm temporary_file
 }
 
@@ -72,7 +74,7 @@ do
 
 		if [[ $RATIO != $RUNTIME_RATIO ]]
 		then
-			pushd /data/traces/$EXPERIMENT_NAME
+			pushd /data/traces/$PROGRAM_NAME
 			sudo rm -rf $RUNTIME_RATIO
 			sudo mv $RATIO $RUNTIME_RATIO
 			popd
