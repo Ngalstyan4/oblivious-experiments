@@ -16,6 +16,9 @@ mmult_eigen: mmult_eigen.cpp
 	$(CXX) $(CPPFLAGS) -static $^ -o $@
 	$(CXX) $(CPPFLAGS) $^ -o $@_dyn
 
+ridge: ridge.cpp
+	$(CXX) $(CPPFLAGS) -static $^ -o $@
+
 mmult_eigen_vec: mmult_eigen.cpp
 	$(CXX) $(CPPFLAGS) -static $^ -o $@
 
