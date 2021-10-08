@@ -12,7 +12,7 @@ fi
 sudo rm -rf /data/traces/*
 
 EXP_RATIOS="100 90 80 70 60 50 40 30 20"
-for n in 6 5 4 3 2 1 7 8
+for n in 7 8 9 10 11 6 5 4 3 2 1
 do
 	for ratio in $EXP_RATIOS
 	do

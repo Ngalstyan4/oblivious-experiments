@@ -231,7 +231,8 @@ function run_process_ratio {
 	    # the pipe manipulation at the end of the line below swaps stdout and stderr so RUN_TIME variable
 	    # will capture %U %S %E" but the program output wil be printed in terminal (as stderr though!!)
 	    # ASSUMES THE PROGRAM RUN DOES NOT PRODUCE ANY STDERR
-	    RUN_TIME=$((/usr/bin/time -f "%U,%S,%E,%F,%R" taskset -c $PROC_NUMBER $PROGRAM_INVOCATION) 3>&2 2>&1 1>&3)
+	    tsk=$(($PROC_NUMBER+7))
+	    RUN_TIME=$((/usr/bin/time -f "%U,%S,%E,%F,%R" taskset -c $tsk $PROGRAM_INVOCATION) 3>&2 2>&1 1>&3)
 	    echo "$RUN_TIME" # becomes out of the subshell and is communicated back to the parent
 	    #subshell END
 	    )
