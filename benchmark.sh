@@ -169,8 +169,6 @@ function run_experiment {
 
     ps ax | grep nic_monitor | awk '{print $1}' | xargs sudo kill -9
     mkdir -p $RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE
-    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.csv" &
-    NIC_MONITOR=$!
 
     RET=()
     for i in `seq 1 $NUM_PROC`
@@ -180,7 +178,7 @@ function run_experiment {
 	    # all these functions use global variables but since they run in subshells,
 	    # their global variables are in distinct states
 	    reset_results $i
-	    run_process $i $RATIOS
+	    run_processes $i $RATIOS
 	    report_results $i
 	    )&
 	    RET+=($!)
@@ -193,18 +191,9 @@ function run_experiment {
     done
 
     echoG "Done!"
-    kill -9 $NIC_MONITOR
 }
 
-
-# there is a weird vim-bash script highlighting issue. the subshell syntax confuses all of
-# highlighting after this function
-function run_process {
-    PROC_NUMBER=$1
-    RATIOS=${@:2}
-    mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/${PROC_NUMBER}"
-	for ratio in $RATIOS
-	do
+function run_process_ratio {
 	    num_tapes=0
             if [ -d /data/traces/$PROGRAM_NAME/$ratio ]
             then
@@ -264,8 +253,32 @@ function run_process {
 	    ftrace_end $ratio
 	    cgroup_end $PROC_NUMBER $ratio
 	    echoG "Runtime: $RUN_TIME"
+}
 
+# there is a weird vim-bash script highlighting issue. the subshell syntax confuses all of
+# highlighting after this function
+function run_processes {
+    PROC_NUMBER=$1
+    RATIOS=${@:2}
+
+    if [ $PROC_NUMBER == 1 ]
+    then
+	    bash nic_monitor.sh > "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/nic_monitor.$RATIOS.csv" &
+	    NIC_MONITOR=$!
+    fi
+
+    mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/${PROC_NUMBER}"
+	for ratio in $RATIOS
+	do
+		run_process_ratio $ratio
 	done
+
+    echoG "Done! NIC"
+
+    if [ $PROC_NUMBER == 1 ]
+    then
+	    kill -9 $NIC_MONITOR
+    fi
 }
 
 function report_results {
@@ -274,7 +287,11 @@ function report_results {
     mkdir -p "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/$PROC_NUMBER"
     pushd "$RESULTS_DIR/${EXPERIMENT_NAME}/$EXPERIMENT_TYPE/$PROC_NUMBER"
 
-	    echo $FTRACE_RESULTS_HEADER > ftrace_results.csv
+	   if [ $PUT_HEADER != 0 ]
+	   then
+		echo $FTRACE_RESULTS_HEADER >> ftrace_results.csv
+	   fi
+
 	    echoG $FTRACE_RESULTS_HEADER
 	    for i in "${FTRACE_RESULTS_ARR[@]}"
 	    do
@@ -283,7 +300,10 @@ function report_results {
 	    done
 	    echo
 
-	    echo $CGROUP_RESULTS_HEADER > cgroup_results.csv
+	    if [ $PUT_HEADER != 0 ]
+	    then
+		echo $CGROUP_RESULTS_HEADER >> cgroup_results.csv
+	    fi
 	    echoG $CGROUP_RESULTS_HEADER
 	    for i in "${CGROUP_RESULTS_ARR[@]}"
 	    do
@@ -292,7 +312,11 @@ function report_results {
 	    done
 	    echo
 
-	    echo $TIME_AND_SWAP_RESULTS_HEADER > time_and_swap_results.csv
+	    if [ $PUT_HEADER != 0 ]
+	    then
+		echo $TIME_AND_SWAP_RESULTS_HEADER >> time_and_swap_results.csv
+	    fi
+
 	    echoG $TIME_AND_SWAP_RESULTS_HEADER
 	    for i in "${TIME_AND_SWAP_RESULTS_ARR[@]}"
 	    do
