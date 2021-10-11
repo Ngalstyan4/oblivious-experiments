@@ -1,10 +1,10 @@
 #!/bin/bash
 OBL_DIR="/mydata/oblivious"
-#NIC_DEVICE="mlx5_3"
-NIC_DEVICE="mlx5_1"
+NIC_DEVICE="mlx5_3"
+#NIC_DEVICE="mlx5_1"
 #NIC_DEVICE="mlx4_0"
 RESULTS_DIR="experiment_results"
-ALL_RATIOS="100 90 80 70 60 50 40 30 20 10 5"
+ALL_RATIOS="100 90 80 70 60 50 40 30 20"
 ALL_RATIOS=${RATIOS:-$ALL_RATIOS}
 APP_CPUS=`seq 0 4`
 APP_CPUS=${CPUS:-$APP_CPUS}

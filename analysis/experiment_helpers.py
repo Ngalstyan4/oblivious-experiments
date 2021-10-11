@@ -4,24 +4,20 @@ import plotly.express as px
 from datetime import datetime
 import os
 
+def get_eviction_to_total(table, name="unnamed"):
+    sub_tbl = table[["Eviction Time"]] #/ 1e6 / table["Measured(wallclock) runtime"] * 100
+    sub_tbl["Eviction Time"] = sub_tbl["Eviction Time"] / 1e6 / table["Measured(wallclock) runtime"] * 100
+    sub_tbl["CUTOFF"] = 5
+    sub_tbl["Experiment Name"] = table["Experiment Name"]
 
-# def get_components(m):
-#         if m.lock_minpf_time:
-#             print("MinPF (delayed hits) =", m.lock_minpf_time, ", Total time =", m.wall_clock_time)
-#             print((m.page_fault_time - m.swap_in_time - m.lock_minpf_time) / m.num_total_faults)
-#         return (m.user_time,
-#                 m.evict_time,
-#                 m.swap_in_time,
-#                 m.lock_minpf_time or 0,
-#                 m.tpo_pf_time or 0,
-#                 m.page_fault_time - m.swap_in_time - (m.lock_minpf_time or 0) - (m.tpo_pf_time or 0),
-#                 m.wall_clock_time - m.user_time - m.evict_time - m.page_fault_time)
-
-#     linux_c = get_components(linux_m)
-#     tape_c = get_components(tape_m)
-#     names = ("user time", "evictions", "swapin I/O time", "delayed hit I/O time", "3po pf time", "other pf time", "other")
-
-
+    fig = px.line(sub_tbl, title='Percent Evictions(%s)'%name,
+              animation_frame="Experiment Name")
+    fig.update_layout(
+        xaxis_title="Ratio",
+        yaxis_title="Eviction time (Percent in total)",
+    )
+    return fig
+                          
 
 def get_components_of_runtime(table, name="unnamed"):
     sub_tbl = table[["User Time",
@@ -65,9 +61,9 @@ def get_components_of_runtime(table, name="unnamed"):
     return fig
 
 def get_experiment_data(EXPERIMENT_TYPES, ind, experiment_name, experiment_dir):
-    ind = str(ind)
+    inds = str(ind)
     # get experiment data
-    get_table = lambda experiment_type, table: pd.read_csv("%s/%s/%s/%s/%s_results.csv" % (experiment_dir, experiment_name, experiment_type, ind, table))
+    get_table = lambda experiment_type, table: pd.read_csv("%s/%s/%s/%s/%s_results.csv" % (experiment_dir, experiment_name, experiment_type, inds, table))
     all_data = pd.DataFrame()
     for exp_type in EXPERIMENT_TYPES:
         cgroup = get_table(exp_type, "cgroup").set_index("RATIO")
@@ -76,7 +72,10 @@ def get_experiment_data(EXPERIMENT_TYPES, ind, experiment_name, experiment_dir):
         # in multithreaded apps info is collected per cpu, so let's average it
         # N.B. todo:: does not work well for everything. would be good to add up number of
         # faults,
-        ftrace = ftrace.groupby(["RATIO"]).sum()
+#         ftrace = ftrace[ftrace["CPU"] > 0 ]
+        ftrace = ftrace[ftrace["CPU"] != 7].groupby(["RATIO"]).sum()
+#         ftrace = ftrace[ftrace["CPU"] < 10].groupby(["RATIO"]).sum()
+
         time_and_swap = get_table(exp_type, "time_and_swap").set_index("RATIO")
         experiment_final = ftrace.join(cgroup).join(time_and_swap)
         experiment_final["EXP"] = exp_type
@@ -101,7 +100,7 @@ def augment_tables(tbl, filter_raw=True):
     
     def per_exp_baseline(exp, measurement_col):
         # for each experiment, val is value of `measurement` under 100% local memory
-        val = tbl[(tbl.index == 100) & (tbl["EXP"] == exp)][measurement_col].values[0]
+        val = tbl[(tbl.index == 90) & (tbl["EXP"] == exp)][measurement_col].values[0]
         return val
 
     tbl["Single Minor PF time(us)"]       = tbl["PAGE_FAULT_TIME"] / tbl["PAGE_FAULT_HIT"]
@@ -160,7 +159,8 @@ def augment_tables(tbl, filter_raw=True):
 
     tbl["Other PF time"]           = tbl["PF Time(us)"]-tbl["Swapin I/O time"]-tbl["Delayed hit I/O time"]-tbl["3PO PF time"]
     tbl["Other"]                   = tbl["WALLCLOCK"].map(to_seconds) * 1e6-tbl["USER"] * 1e6 -tbl["Eviction Time"] - tbl["PF Time(us)"]
-    tbl["Other"]   = tbl["Other"].clip(0)
+#     tbl["Other"]   = tbl["Other"].clip(0)
+    tbl["Other PF time"] = tbl["Other PF time"].clip(0)
 #print(([ tbl["WALLCLOCK"].map(to_seconds), tbl["USER"], tbl["Eviction Time"], tbl["PF Time(us)"]]))
     
 
@@ -177,7 +177,7 @@ def augment_tables(tbl, filter_raw=True):
 
     tbl["Extra User Time"]         = tbl["USER"] * 1e6 - tbl["Baseline User Time"]
     tbl["User Time"]         = tbl["USER"] * 1e6
-
+    print("usertime",tbl["User Time"] )
 
 #     tbl["System Overhead"]         = tbl["Baseline minor PF Time"] + \
 #                                        tbl["Extra Minor PF Time"] + \
@@ -230,7 +230,7 @@ def get_nic_monitor_data(EXPERIMENT_TYPES, workload, experiment_dir):
         tbl = pd.DataFrame()
         for f in os.listdir("%s/%s/%s/" % (experiment_dir, workload, exp)):
             if f.startswith("nic_monitor"):
-                ratio = 0#int(f.split(".")[1])
+                ratio = int(f.split(".")[1])
                 tmp = pd.read_csv("%s/%s/%s/%s" % (experiment_dir, workload, exp, f))
                 tmp["RATIO"] = ratio
                 tmp["Experiment Name"] = exp
