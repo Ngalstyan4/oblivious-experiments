@@ -4,17 +4,37 @@ import plotly.express as px
 from datetime import datetime
 import os
 
+def get_eviction_to_total(table, name="unnamed"):
+    sub_tbl = table[["Eviction Time"]] #/ 1e6 / table["Measured(wallclock) runtime"] * 100
+    sub_tbl["Eviction Time"] = sub_tbl["Eviction Time"] / 1e6 / table["Measured(wallclock) runtime"] * 100
+    sub_tbl["CUTOFF"] = 5
+    sub_tbl["Experiment Name"] = table["Experiment Name"]
+
+    fig = px.line(sub_tbl, title='Percent Evictions(%s)'%name,
+              animation_frame="Experiment Name")
+    fig.update_layout(
+        xaxis_title="Ratio",
+        yaxis_title="Eviction time (Percent in total)",
+    )
+    return fig
+                          
+
 def get_components_of_runtime(table, name="unnamed"):
-    sub_tbl = table[["Eviction Time",
-                     "Baseline minor PF Time",
-                     "Extra Minor PF Time",
-                     "Major PF Time",
-                     "Baseline User Time",
-                     "Extra User Time",
+    sub_tbl = table[["User Time",
+                     "Eviction Time",
+                     "Swapin I/O time",
+                     "Delayed hit I/O time",
+                     "3PO PF time",
+                     "Other PF time",
+                     "Other"
+#                      "Baseline minor PF Time",
+#                      "Extra Minor PF Time",
+#                      ,
+#                      "Extra User Time",
                                      ]] / 1e6
     sub_tbl["Experiment Name"] = table["Experiment Name"]
     fig = px.area(sub_tbl, title='Components of runtime(%s)'%name,
-                  color_discrete_sequence=['#636efa', '#ef553b',  '#9e1700','#00cc96', '#ab63fa', '#3c0c73'],
+                  color_discrete_sequence=['blue', 'orangered',  '#00cc96', 'red', 'purple', 'brown', 'hotpink'],
                   animation_frame="Experiment Name")
     fig.update_layout(
         xaxis_title="Ratio",
@@ -40,10 +60,10 @@ def get_components_of_runtime(table, name="unnamed"):
 
     return fig
 
-def get_experiment_data(EXPERIMENT_TYPES, experiment_name, experiment_dir):
-
+def get_experiment_data(EXPERIMENT_TYPES, ind, experiment_name, experiment_dir):
+    inds = str(ind)
     # get experiment data
-    get_table = lambda experiment_type, table: pd.read_csv("%s/%s/%s/%s_results.csv" % (experiment_dir, experiment_name, experiment_type, table))
+    get_table = lambda experiment_type, table: pd.read_csv("%s/%s/%s/%s/%s_results.csv" % (experiment_dir, experiment_name, experiment_type, inds, table))
     all_data = pd.DataFrame()
     for exp_type in EXPERIMENT_TYPES:
         cgroup = get_table(exp_type, "cgroup").set_index("RATIO")
@@ -52,7 +72,10 @@ def get_experiment_data(EXPERIMENT_TYPES, experiment_name, experiment_dir):
         # in multithreaded apps info is collected per cpu, so let's average it
         # N.B. todo:: does not work well for everything. would be good to add up number of
         # faults,
-        ftrace = ftrace.groupby(["RATIO"]).sum()
+#         ftrace = ftrace[ftrace["CPU"] > 0 ]
+        ftrace = ftrace[ftrace["CPU"] != 7].groupby(["RATIO"]).sum()
+#         ftrace = ftrace[ftrace["CPU"] < 10].groupby(["RATIO"]).sum()
+
         time_and_swap = get_table(exp_type, "time_and_swap").set_index("RATIO")
         experiment_final = ftrace.join(cgroup).join(time_and_swap)
         experiment_final["EXP"] = exp_type
@@ -71,9 +94,13 @@ def get_experiment_data(EXPERIMENT_TYPES, experiment_name, experiment_dir):
 
 def augment_tables(tbl, filter_raw=True):
 
+    
+
+
+    
     def per_exp_baseline(exp, measurement_col):
         # for each experiment, val is value of `measurement` under 100% local memory
-        val = tbl[(tbl.index == 100) & (tbl["EXP"] == exp)][measurement_col].values[0]
+        val = tbl[(tbl.index == 90) & (tbl["EXP"] == exp)][measurement_col].values[0]
         return val
 
     tbl["Single Minor PF time(us)"]       = tbl["PAGE_FAULT_TIME"] / tbl["PAGE_FAULT_HIT"]
@@ -89,19 +116,54 @@ def augment_tables(tbl, filter_raw=True):
         tbl.loc[tbl["EXP"] == exp, "Baseline User Time"] =   per_exp_baseline(exp, "USER") * 1e6
         tbl.loc[tbl["EXP"] == exp, "Baseline Single Minor PF Time(us)"] =   per_exp_baseline(exp, "Single Minor PF time(us)")
 
+#     MeasurementTuple = collections.namedtuple("MeasurementTuple", ("ratio",
+#                                                                "num_major_faults",
+#                                                                "num_total_faults",
+#                                                                "user_time",
+#                                                                "wall_clock_time",
+#                                                                "pages_evicted",
+#                                                                "pages_swapped_in",
+#                                                                "page_fault_time",
+#                                                                "swap_in_time",
+#                                                                "evict_time",
+#                                                                "lock_minpf_time",
+#                                                                "tpo_pf_time"))
+#             self.by_ratio[ratio] = Measurement(ratio,
+#                                                int(cgroup["NUM_MAJOR_FAULTS"]),
+#                                                int(cgroup["NUM_FAULTS"]),
+#                                                time_to_secs(stats["USER"]),
+#                                                time_to_secs(stats["WALLCLOCK"]),
+#                                                int(stats["PAGES_EVICTED"]),
+#                                                int(stats["PAGES_SWAPPED_IN"]),
+#                                                micros_empty_to_secs(ftrace["PAGE_FAULT_TIME"]),
+#                                                micros_empty_to_secs(ftrace["SWAPIN_TIME"]),
+#                                                micros_empty_to_secs(ftrace["EVICT_TIME"]),
+#                                                micros_empty_to_secs(ftrace["LOCK_MINPF_TIME"]) if "LOCK_MINPF_TIME" in ftrace else None,
+#                                                micros_empty_to_secs(ftrace["3PO_PF_TIME"]) if "3PO_PF_TIME" in ftrace else None)
 
-    tbl["Page Faults"]             = tbl["PAGE_FAULT_HIT"].fillna(0)
-    tbl["PF Time(us)"]             = tbl["PAGE_FAULT_TIME"].fillna(0)
-    # can also be "NUM_MAJOR_FAULTS"
-    tbl["Major Page Faults"]       = tbl["SWAPIN_HIT"].fillna(0)
-    tbl["Minor Page Faults"]       = tbl["NUM_FAULTS"] - tbl["NUM_MAJOR_FAULTS"]
+    def to_seconds(a):
+        pt = datetime.strptime(a,'%M:%S.%f')
+        total_seconds = pt.microsecond * 1e-6 + pt.second + pt.minute*60 + pt.hour*3600
+        return total_seconds
+
     tbl["Evictions"]               = tbl["PAGES_EVICTED"].fillna(0)
 
-    # deprecate this..does not consider fastswap offload..
-    #tbl["Eviction Time(us)"]      = tbl["Evictions"] * SYSTEM_CONSTANTS["SYSTEM_TIME_PER_EVICTION"]
+    tbl["Major Page Faults"]       = tbl["NUM_MAJOR_FAULTS"].fillna(0)
+    tbl["Total Page Faults"]       = tbl["NUM_FAULTS"].fillna(0)
+    tbl["Minor Page Faults"]       = tbl["NUM_FAULTS"] - tbl["NUM_MAJOR_FAULTS"]
+    tbl["PF Time(us)"]             = tbl["PAGE_FAULT_TIME"].fillna(0)
     tbl["Eviction Time"]           = tbl['EVICT_TIME'].fillna(0)
+    tbl["Swapin I/O time"]         = tbl["SWAPIN_TIME"].fillna(0)
+    tbl["Delayed hit I/O time"]    = tbl["LOCK_MINPF_TIME"].fillna(0)
+    tbl["3PO PF time"]             = tbl["3PO_PF_TIME"].fillna(0)
 
-    tbl["Major PF Time"]       = tbl["SWAPIN_TIME"].fillna(0)
+    tbl["Other PF time"]           = tbl["PF Time(us)"]-tbl["Swapin I/O time"]-tbl["Delayed hit I/O time"]-tbl["3PO PF time"]
+    tbl["Other"]                   = tbl["WALLCLOCK"].map(to_seconds) * 1e6-tbl["USER"] * 1e6 -tbl["Eviction Time"] - tbl["PF Time(us)"]
+#     tbl["Other"]   = tbl["Other"].clip(0)
+    tbl["Other PF time"] = tbl["Other PF time"].clip(0)
+#print(([ tbl["WALLCLOCK"].map(to_seconds), tbl["USER"], tbl["Eviction Time"], tbl["PF Time(us)"]]))
+    
+
 
     # todo:: sth wrong with Sync time since:
    #    it is called by do_page_fault and its time should be included in minor fault time
@@ -111,22 +173,21 @@ def augment_tables(tbl, filter_raw=True):
    # tbl["Tape Sync Time(us)"]      = tbl["SYNC_TIME"].fillna(0)
     tbl["Baseline minor PF Time"]  = tbl["Minor Page Faults"] * tbl["Baseline Single Minor PF Time(us)"]
 
-    tbl["Extra Minor PF Time"] = (tbl["PF Time(us)"] - tbl["Major PF Time"] -  tbl["Baseline minor PF Time"]).clip(0)
+#     tbl["Extra Minor PF Time"] = (tbl["PF Time(us)"] - tbl["Major PF Time"] -  tbl["Baseline minor PF Time"]).clip(0)
 
     tbl["Extra User Time"]         = tbl["USER"] * 1e6 - tbl["Baseline User Time"]
+    tbl["User Time"]         = tbl["USER"] * 1e6
+    print("usertime",tbl["User Time"] )
 
-    tbl["System Overhead"]         = tbl["Baseline minor PF Time"] + \
-                                       tbl["Extra Minor PF Time"] + \
-                                       tbl["Eviction Time"] + \
-                                       tbl["Major PF Time"]
+#     tbl["System Overhead"]         = tbl["Baseline minor PF Time"] + \
+#                                        tbl["Extra Minor PF Time"] + \
+#                                        tbl["Eviction Time"] + \
+#                                        tbl["Major PF Time"]
 
-    tbl["Total System Time"]       = tbl["System Overhead"] + \
-                                       tbl["Baseline System Time"]
+#     tbl["Total System Time"]       = tbl["System Overhead"] + \
+#                                        tbl["Baseline System Time"]
 
-    def to_seconds(a):
-        pt = datetime.strptime(a,'%M:%S.%f')
-        total_seconds = pt.microsecond * 1e-6 + pt.second + pt.minute*60 + pt.hour*3600
-        return total_seconds
+
     tbl["Measured(wallclock) runtime"] = tbl["WALLCLOCK"].map(to_seconds)
 
     tbl["Runtime"]                 = tbl["Measured(wallclock) runtime"]

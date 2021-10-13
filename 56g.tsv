@@ -1,0 +1,9 @@
+RATIO	mmult_eigen	mmult_eigen_dot	mmult_eigen_vec	python	sparse_eigen
+90	10	2	2		
+80	6	2	2	9	
+70	6	2	2	6	4
+60	6	2	2	4	3
+50	5	2	2	4	2
+40	3	2	2	2	2
+30	3	2	2	2	2
+20	3	2	2	2	2
